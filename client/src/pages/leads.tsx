@@ -388,7 +388,7 @@ export default function LeadsPage() {
                           data-testid={`button-generate-images-${lead.id}`}
                         >
                           {lead.heroImageUrl ? (
-                            <ImagePlus className="h-4 w-4 text-primary" />
+                            <ImagePlus className="h-4 w-4" />
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
@@ -568,19 +568,25 @@ export default function LeadsPage() {
       </Dialog>
 
       {/* Generate Images Dialog */}
-      <Dialog open={isGeneratingDialogOpen} onOpenChange={setIsGeneratingDialogOpen}>
+      <Dialog open={isGeneratingDialogOpen} onOpenChange={(open) => {
+        setIsGeneratingDialogOpen(open);
+        if (!open) {
+          setGeneratingLead(null);
+          setImagePrompt("");
+        }
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2" data-testid="dialog-title-generate-images">
+              <Sparkles className="h-5 w-5" />
               Gerar Imagens com IA
             </DialogTitle>
           </DialogHeader>
           {generatingLead && (
             <div className="space-y-4 py-4">
-              <div className="p-4 rounded-lg bg-muted">
-                <p className="font-medium">{generatingLead.businessName}</p>
-                <p className="text-sm text-muted-foreground">{generatingLead.city}</p>
+              <div className="p-4 rounded-lg bg-muted" data-testid="display-lead-info">
+                <p className="font-medium" data-testid="text-business-name">{generatingLead.businessName}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-city">{generatingLead.city}</p>
               </div>
               <div className="space-y-2">
                 <Label>Descreva o negocio para gerar imagens personalizadas</Label>
@@ -596,8 +602,8 @@ export default function LeadsPage() {
                 </p>
               </div>
               {generatingLead.heroImageUrl && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <p className="text-sm text-primary flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-muted border" data-testid="warning-existing-images">
+                  <p className="text-sm flex items-center gap-2">
                     <ImagePlus className="h-4 w-4" />
                     Este lead ja possui imagens geradas. Continuar ira substituir as imagens atuais.
                   </p>
