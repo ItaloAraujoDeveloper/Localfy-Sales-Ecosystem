@@ -36,6 +36,16 @@ import retailHero from "../assets/images/retail-hero.jpg";
 import retailProduct1 from "../assets/images/retail-product-1.jpg";
 import retailProduct2 from "../assets/images/retail-product-2.jpg";
 import genericHero from "../assets/images/generic-hero.jpg";
+import gymHero from "../assets/images/gym-hero.jpg";
+import gymService1 from "../assets/images/gym-service-1.jpg";
+import gymService2 from "../assets/images/gym-service-2.jpg";
+import gymService3 from "../assets/images/gym-service-3.jpg";
+
+// Gym/Academia specific images
+const GYM_IMAGES = {
+  hero: gymHero,
+  products: [gymService1, gymService2, gymService3],
+};
 
 const CATEGORY_IMAGES: Record<BusinessCategory, { hero: string; products: string[] }> = {
   gastronomy: {
@@ -126,10 +136,18 @@ function WhatsAppButton({ phone }: { phone?: string | null }) {
 
 function PreviewTemplate({ lead }: { lead: Lead }) {
   const category = (lead.category as BusinessCategory) || "generic";
+  const businessType = (lead as any).businessType as string | null | undefined;
   const colors = CATEGORY_COLORS[category];
-  const defaultImages = CATEGORY_IMAGES[category];
   const defaultProducts = CATEGORY_PRODUCTS[category];
   const Icon = CATEGORY_ICONS[category];
+
+  // Check if this is a gym/academia - use gym-specific images
+  const isGym = businessType === "academia" || 
+    lead.businessName.toLowerCase().includes("academia") ||
+    lead.businessName.toLowerCase().includes("fitness") ||
+    lead.businessName.toLowerCase().includes("gym");
+  
+  const defaultImages = isGym ? GYM_IMAGES : CATEGORY_IMAGES[category];
 
   // Get generated content or fallback to defaults
   const hasGeneratedContent = (lead as any).siteGenerated === true;
