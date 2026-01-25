@@ -40,6 +40,9 @@ export const leads = pgTable("leads", {
   notes: text("notes"),
   previewSlug: text("preview_slug"),
   dueDate: timestamp("due_date"),
+  imagePrompt: text("image_prompt"),
+  heroImageUrl: text("hero_image_url"),
+  productImages: text("product_images").array(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

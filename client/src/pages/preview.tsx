@@ -127,9 +127,15 @@ function WhatsAppButton({ phone }: { phone?: string | null }) {
 function PreviewTemplate({ lead }: { lead: Lead }) {
   const category = (lead.category as BusinessCategory) || "generic";
   const colors = CATEGORY_COLORS[category];
-  const images = CATEGORY_IMAGES[category];
+  const defaultImages = CATEGORY_IMAGES[category];
   const products = CATEGORY_PRODUCTS[category];
   const Icon = CATEGORY_ICONS[category];
+
+  // Use AI-generated images if available, fallback to stock images
+  const heroImage = lead.heroImageUrl || defaultImages.hero;
+  const productImages = lead.productImages && lead.productImages.length > 0 
+    ? lead.productImages 
+    : defaultImages.products;
 
   const whatsappNumber = lead.phone?.replace(/\D/g, "") || "";
   const whatsappUrl = `https://wa.me/55${whatsappNumber}`;
@@ -209,7 +215,7 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
                 style={{ backgroundColor: colors.primary }}
               />
               <img
-                src={images.hero}
+                src={heroImage}
                 alt={lead.businessName}
                 className="relative rounded-2xl shadow-2xl w-full aspect-square object-cover ring-4"
                 style={{ ringColor: colors.primary }}
@@ -332,7 +338,7 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
               >
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src={images.products[i]}
+                    src={productImages[i] || defaultImages.products[i]}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

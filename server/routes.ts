@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin } from "./auth";
 import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory } from "@shared/schema";
 import { z } from "zod";
+import { generateImageBuffer } from "./replit_integrations/image/client";
 
 // Google Places API configuration
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
@@ -221,6 +222,62 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting lead:", error);
       res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+
+  // ========== AI IMAGE GENERATION ==========
+
+  // Generate images for a lead using AI
+  app.post("/api/leads/:id/generate-images", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { prompt } = req.body;
+
+      if (!prompt) {
+        return res.status(400).json({ message: "Prompt is required" });
+      }
+
+      const lead = await storage.getLead(id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Generate hero image
+      const heroPrompt = `Professional business photo for ${lead.businessName}: ${prompt}. High quality, commercial photography style, well-lit, modern and inviting atmosphere.`;
+      const heroBuffer = await generateImageBuffer(heroPrompt, "1024x1024");
+      const heroBase64 = heroBuffer.toString("base64");
+      const heroDataUrl = `data:image/png;base64,${heroBase64}`;
+
+      // Generate 3 product/service images
+      const productPrompts = [
+        `Product or service photo 1 for ${lead.businessName}: ${prompt}. Professional commercial photography, clean background.`,
+        `Product or service photo 2 for ${lead.businessName}: ${prompt}. Professional product shot, high quality.`,
+        `Product or service photo 3 for ${lead.businessName}: ${prompt}. Service or product detail shot, professional lighting.`,
+      ];
+
+      const productImages: string[] = [];
+      for (const prodPrompt of productPrompts) {
+        const buffer = await generateImageBuffer(prodPrompt, "1024x1024");
+        const base64 = buffer.toString("base64");
+        productImages.push(`data:image/png;base64,${base64}`);
+      }
+
+      // Update lead with generated images
+      const updatedLead = await storage.updateLead(id, {
+        imagePrompt: prompt,
+        heroImageUrl: heroDataUrl,
+        productImages: productImages,
+      });
+
+      res.json({
+        success: true,
+        heroImageUrl: heroDataUrl,
+        productImages: productImages,
+        lead: updatedLead,
+      });
+    } catch (error) {
+      console.error("Error generating images:", error);
+      res.status(500).json({ message: "Failed to generate images" });
     }
   });
 

@@ -44,6 +44,8 @@ import {
   Loader2,
   AlertCircle,
   ShieldAlert,
+  Sparkles,
+  ImagePlus,
 } from "lucide-react";
 
 const STATUS_COLORS: Record<LeadStatus, string> = {
@@ -62,6 +64,9 @@ export default function LeadsPage() {
   const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [generatingLead, setGeneratingLead] = useState<Lead | null>(null);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [isGeneratingDialogOpen, setIsGeneratingDialogOpen] = useState(false);
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
@@ -98,6 +103,36 @@ export default function LeadsPage() {
       toast({ title: "Erro ao remover lead", variant: "destructive" });
     },
   });
+
+  const generateImagesMutation = useMutation({
+    mutationFn: async (data: { id: string; prompt: string }) => {
+      return apiRequest("POST", `/api/leads/${data.id}/generate-images`, { prompt: data.prompt });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Imagens geradas com sucesso!" });
+      setIsGeneratingDialogOpen(false);
+      setGeneratingLead(null);
+      setImagePrompt("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao gerar imagens", variant: "destructive" });
+    },
+  });
+
+  const handleGenerateImages = (lead: Lead) => {
+    setGeneratingLead(lead);
+    setImagePrompt(lead.imagePrompt || "");
+    setIsGeneratingDialogOpen(true);
+  };
+
+  const handleConfirmGenerateImages = () => {
+    if (!generatingLead || !imagePrompt.trim()) return;
+    generateImagesMutation.mutate({
+      id: generatingLead.id,
+      prompt: imagePrompt.trim(),
+    });
+  };
 
   const filteredLeads = leads?.filter(lead => {
     const matchesSearch = 
@@ -345,6 +380,19 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleGenerateImages(lead)}
+                          title={lead.heroImageUrl ? "Regenerar imagens" : "Gerar imagens com IA"}
+                          data-testid={`button-generate-images-${lead.id}`}
+                        >
+                          {lead.heroImageUrl ? (
+                            <ImagePlus className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
                         {lead.previewSlug && (
                           <Button
                             size="icon"
@@ -514,6 +562,73 @@ export default function LeadsPage() {
             >
               {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Images Dialog */}
+      <Dialog open={isGeneratingDialogOpen} onOpenChange={setIsGeneratingDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Gerar Imagens com IA
+            </DialogTitle>
+          </DialogHeader>
+          {generatingLead && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-muted">
+                <p className="font-medium">{generatingLead.businessName}</p>
+                <p className="text-sm text-muted-foreground">{generatingLead.city}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Descreva o negocio para gerar imagens personalizadas</Label>
+                <Textarea
+                  placeholder="Ex: hamburgueria artesanal com ambiente rustico, estilo industrial, mesas de madeira, iluminacao aconchegante..."
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  rows={4}
+                  data-testid="textarea-image-prompt"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Quanto mais detalhada a descricao, melhores serao as imagens geradas.
+                </p>
+              </div>
+              {generatingLead.heroImageUrl && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <p className="text-sm text-primary flex items-center gap-2">
+                    <ImagePlus className="h-4 w-4" />
+                    Este lead ja possui imagens geradas. Continuar ira substituir as imagens atuais.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsGeneratingDialogOpen(false)}
+              data-testid="button-cancel-generate"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleConfirmGenerateImages} 
+              disabled={generateImagesMutation.isPending || !imagePrompt.trim()}
+              data-testid="button-confirm-generate"
+            >
+              {generateImagesMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Gerando (pode levar alguns segundos)...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Gerar Imagens
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
