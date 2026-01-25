@@ -37,7 +37,7 @@ export const leads = pgTable("leads", {
   reviewCount: integer("review_count").default(0),
   status: leadStatusEnum("status").default("new"),
   sellerId: varchar("seller_id"),
-  monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }).default("99.00"),
+  monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }).default("99.90"),
   notes: text("notes"),
   previewSlug: text("preview_slug"),
   dueDate: timestamp("due_date"),
