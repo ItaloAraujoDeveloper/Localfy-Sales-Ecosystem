@@ -63,6 +63,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
+  const [dueDateFilter, setDueDateFilter] = useState<string>("all");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [generatingSiteLead, setGeneratingSiteLead] = useState<Lead | null>(null);
@@ -144,9 +145,12 @@ export default function LeadsPage() {
       lead.city?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-    const matchesSeller = sellerFilter === "all" || lead.sellerId === sellerFilter;
+    const matchesSeller = sellerFilter === "all" || 
+      (sellerFilter === "no_seller" ? !lead.sellerId : lead.sellerId === sellerFilter);
+    const matchesDueDate = dueDateFilter === "all" || 
+      (dueDateFilter === "no_date" ? !lead.dueDate : true);
     
-    return matchesSearch && matchesStatus && matchesSeller;
+    return matchesSearch && matchesStatus && matchesSeller && matchesDueDate;
   }) || [];
 
   const isOverdue = (dueDate: string | Date | null) => {
@@ -264,11 +268,21 @@ export default function LeadsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos Vendedores</SelectItem>
+                <SelectItem value="no_seller">Sem Vendedor</SelectItem>
                 {sellers?.map(seller => (
                   <SelectItem key={seller.id} value={seller.id}>
                     {seller.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
+              <SelectTrigger className="w-[150px]" data-testid="select-duedate-filter">
+                <SelectValue placeholder="Prazo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Prazos</SelectItem>
+                <SelectItem value="no_date">Sem Prazo</SelectItem>
               </SelectContent>
             </Select>
           </div>
