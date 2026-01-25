@@ -2,8 +2,44 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin } from "./auth";
-import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema } from "@shared/schema";
+import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory } from "@shared/schema";
 import { z } from "zod";
+
+// Google Places API configuration
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+const PLACES_NEARBY_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+const PLACES_TEXT_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json";
+const PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
+
+interface PlaceResult {
+  place_id: string;
+  name: string;
+  vicinity?: string;
+  formatted_address?: string;
+  geometry: { location: { lat: number; lng: number } };
+  rating?: number;
+  user_ratings_total?: number;
+  types?: string[];
+  formatted_phone_number?: string;
+  website?: string;
+}
+
+// Map Google place types to our categories
+function mapPlaceTypeToCategory(types: string[]): BusinessCategory {
+  if (types.some(t => ["restaurant", "food", "bakery", "cafe", "bar", "meal_delivery", "meal_takeaway"].includes(t))) {
+    return "gastronomy";
+  }
+  if (types.some(t => ["beauty_salon", "hair_care", "spa", "gym", "health", "hospital", "doctor", "dentist", "physiotherapist"].includes(t))) {
+    return "health_beauty";
+  }
+  if (types.some(t => ["car_repair", "electrician", "plumber", "lawyer", "accounting", "insurance_agency", "real_estate_agency", "travel_agency"].includes(t))) {
+    return "services";
+  }
+  if (types.some(t => ["store", "shopping_mall", "clothing_store", "shoe_store", "jewelry_store", "furniture_store", "electronics_store", "hardware_store", "supermarket", "convenience_store"].includes(t))) {
+    return "retail";
+  }
+  return "generic";
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -12,6 +48,96 @@ export async function registerRoutes(
   // Setup session and auth routes
   setupSession(app);
   registerAuthRoutes(app);
+
+  // ========== GOOGLE PLACES SEARCH ==========
+  
+  // Search for businesses using Google Places API
+  app.get("/api/places/search", isAuthenticated, async (req, res) => {
+    try {
+      const { query, location } = req.query;
+      
+      if (!query || !location) {
+        return res.status(400).json({ message: "Query and location are required" });
+      }
+      
+      if (!GOOGLE_PLACES_API_KEY) {
+        return res.status(500).json({ message: "Google Places API key not configured" });
+      }
+
+      // First, search for places using text search
+      const searchQuery = `${query} em ${location}`;
+      const textSearchUrl = new URL(PLACES_TEXT_URL);
+      textSearchUrl.searchParams.set("query", searchQuery);
+      textSearchUrl.searchParams.set("key", GOOGLE_PLACES_API_KEY);
+      textSearchUrl.searchParams.set("language", "pt-BR");
+      
+      const searchResponse = await fetch(textSearchUrl.toString());
+      const searchData = await searchResponse.json() as { status: string; results: PlaceResult[] };
+      
+      if (searchData.status !== "OK" && searchData.status !== "ZERO_RESULTS") {
+        console.error("Google Places API error:", searchData);
+        return res.status(500).json({ message: `Google API error: ${searchData.status}` });
+      }
+
+      const places = searchData.results || [];
+      
+      // Get details for each place to check for website
+      const businessResults = await Promise.all(
+        places.slice(0, 20).map(async (place) => {
+          // Get place details for phone and website
+          const detailsUrl = new URL(PLACES_DETAILS_URL);
+          detailsUrl.searchParams.set("place_id", place.place_id);
+          detailsUrl.searchParams.set("fields", "formatted_phone_number,website");
+          detailsUrl.searchParams.set("key", GOOGLE_PLACES_API_KEY);
+          
+          try {
+            const detailsResponse = await fetch(detailsUrl.toString());
+            const detailsData = await detailsResponse.json() as { result?: PlaceResult };
+            const details: PlaceResult | Record<string, never> = detailsData.result || {};
+            
+            // Extract city from address
+            const addressParts = (place.formatted_address || place.vicinity || "").split(",");
+            const city = addressParts.length > 1 ? addressParts[addressParts.length - 2]?.trim() : location;
+            
+            return {
+              id: place.place_id,
+              name: place.name,
+              category: mapPlaceTypeToCategory(place.types || []),
+              address: place.formatted_address || place.vicinity || "",
+              city: city || String(location),
+              phone: "formatted_phone_number" in details ? details.formatted_phone_number || "" : "",
+              rating: place.rating || 0,
+              reviewCount: place.user_ratings_total || 0,
+              hasWebsite: "website" in details && !!details.website,
+              website: "website" in details ? details.website || null : null,
+            };
+          } catch (detailError) {
+            // If details fail, return place without phone/website info
+            const addressParts = (place.formatted_address || place.vicinity || "").split(",");
+            const city = addressParts.length > 1 ? addressParts[addressParts.length - 2]?.trim() : location;
+            
+            return {
+              id: place.place_id,
+              name: place.name,
+              category: mapPlaceTypeToCategory(place.types || []),
+              address: place.formatted_address || place.vicinity || "",
+              city: city || String(location),
+              phone: "",
+              rating: place.rating || 0,
+              reviewCount: place.user_ratings_total || 0,
+              hasWebsite: false,
+              website: null,
+            };
+          }
+        })
+      );
+
+      res.json(businessResults);
+    } catch (error) {
+      console.error("Error searching places:", error);
+      res.status(500).json({ message: "Failed to search places" });
+    }
+  });
 
   // ========== LEADS ==========
   

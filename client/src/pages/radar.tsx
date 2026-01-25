@@ -54,10 +54,10 @@ export default function RadarPage() {
     queryKey: ["/api/leads"],
   });
 
-  // Simulated search - in production this would call Google Maps API
+  // Search using real Google Places API
   const handleSearch = async () => {
     if (!searchTerm || !location) {
-      toast({ title: "Preencha o termo e localização", variant: "destructive" });
+      toast({ title: "Preencha o termo e localizacao", variant: "destructive" });
       return;
     }
 
@@ -65,72 +65,33 @@ export default function RadarPage() {
     setDiscoveredBusinesses([]);
     setSelectedIds(new Set());
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Generate mock results based on search term
-    const categories: BusinessCategory[] = ["gastronomy", "health_beauty", "services", "retail"];
-    const mockResults: DiscoveredBusiness[] = [];
-    
-    const businessTypes: Record<string, { names: string[], category: BusinessCategory }> = {
-      "restaurante": { 
-        names: ["Sabor da Terra", "Cantinho Italiano", "Churrascaria Gaucha", "Sushi Express", "Pizzaria Bella"],
-        category: "gastronomy"
-      },
-      "padaria": { 
-        names: ["Padaria Pao Quente", "Casa do Pao", "Padaria Estrela", "Padoca do Zé", "Delícias da Manhã"],
-        category: "gastronomy"
-      },
-      "clinica": { 
-        names: ["Clinica Vida", "Centro Medico Saude", "Clinica Bem Estar", "Fisio Center", "OdontoPlus"],
-        category: "health_beauty"
-      },
-      "salao": { 
-        names: ["Studio Beauty", "Salao Glamour", "Hair Design", "Beleza Total", "Espaço da Beleza"],
-        category: "health_beauty"
-      },
-      "oficina": { 
-        names: ["Auto Center", "Mecanica Express", "Car Service", "Oficina do Zé", "Auto Reparos"],
-        category: "services"
-      },
-      "loja": { 
-        names: ["Loja da Moda", "Centro Comercial", "Boutique Style", "Mega Store", "Varejo Plus"],
-        category: "retail"
-      },
-    };
-
-    const searchLower = searchTerm.toLowerCase();
-    let matchedType = Object.keys(businessTypes).find(key => searchLower.includes(key));
-    
-    if (!matchedType) {
-      matchedType = "loja"; // Default
-    }
-
-    const typeData = businessTypes[matchedType];
-    
-    for (let i = 0; i < 8; i++) {
-      const hasWebsite = Math.random() > 0.6; // 40% don't have website
-      mockResults.push({
-        id: `mock-${i}-${Date.now()}`,
-        name: typeData.names[i % typeData.names.length] + (i > 4 ? ` ${i}` : ""),
-        category: typeData.category,
-        address: `Rua ${["das Flores", "Principal", "Comercial", "do Centro", "Nova"][i % 5]}, ${100 + i * 50}`,
-        city: location,
-        phone: `(11) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-        rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
-        reviewCount: Math.floor(10 + Math.random() * 200),
-        hasWebsite,
+    try {
+      const response = await fetch(`/api/places/search?query=${encodeURIComponent(searchTerm)}&location=${encodeURIComponent(location)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao buscar negocios");
+      }
+      
+      const results: DiscoveredBusiness[] = await response.json();
+      
+      setDiscoveredBusinesses(results);
+      
+      const withoutSite = results.filter(b => !b.hasWebsite).length;
+      toast({ 
+        title: `${results.length} negocios encontrados`,
+        description: `${withoutSite} sem website detectados`,
       });
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({ 
+        title: "Erro na busca", 
+        description: error instanceof Error ? error.message : "Tente novamente",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSearching(false);
     }
-
-    setDiscoveredBusinesses(mockResults);
-    setIsSearching(false);
-
-    const withoutSite = mockResults.filter(b => !b.hasWebsite).length;
-    toast({ 
-      title: `${mockResults.length} negocios encontrados`,
-      description: `${withoutSite} sem website detectados`,
-    });
   };
 
   const importMutation = useMutation({
