@@ -32,19 +32,18 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Search,
   Filter,
-  Calendar,
   Phone,
   MapPin,
-  Star,
-  ExternalLink,
   Pencil,
   Trash2,
   Eye,
   Loader2,
   AlertCircle,
+  ShieldAlert,
 } from "lucide-react";
 
 const STATUS_COLORS: Record<LeadStatus, string> = {
@@ -57,6 +56,7 @@ const STATUS_COLORS: Record<LeadStatus, string> = {
 
 export default function LeadsPage() {
   const { toast } = useToast();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
@@ -111,17 +111,6 @@ export default function LeadsPage() {
     return matchesSearch && matchesStatus && matchesSeller;
   }) || [];
 
-  const getSellerName = (sellerId: string | null) => {
-    if (!sellerId) return "-";
-    const seller = sellers?.find(s => s.id === sellerId);
-    return seller?.name || "-";
-  };
-
-  const formatDate = (date: string | Date | null) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("pt-BR");
-  };
-
   const isOverdue = (dueDate: string | Date | null) => {
     if (!dueDate) return false;
     return new Date(dueDate) < new Date();
@@ -175,10 +164,19 @@ export default function LeadsPage() {
     });
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-64 gap-4">
+        <ShieldAlert className="h-12 w-12 text-muted-foreground" />
+        <p className="text-muted-foreground">Acesso restrito a administradores</p>
       </div>
     );
   }
@@ -280,13 +278,13 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell>
                       {lead.phone ? (
-                        <a 
-                          href={`tel:${lead.phone}`}
-                          className="flex items-center gap-1 text-sm hover:text-primary"
+                        <span 
+                          className="flex items-center gap-1 text-sm"
+                          data-testid={`text-phone-${lead.id}`}
                         >
                           <Phone className="h-3 w-3" />
                           {lead.phone}
-                        </a>
+                        </span>
                       ) : "-"}
                     </TableCell>
                     <TableCell>
@@ -294,8 +292,8 @@ export default function LeadsPage() {
                         value={lead.status}
                         onValueChange={(value) => handleQuickStatusChange(lead.id, value as LeadStatus)}
                       >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <Badge className={`${STATUS_COLORS[lead.status as LeadStatus]} text-white`}>
+                        <SelectTrigger className="w-[140px]" data-testid={`select-status-${lead.id}`}>
+                          <Badge variant="secondary">
                             {STATUS_LABELS[lead.status as LeadStatus]}
                           </Badge>
                         </SelectTrigger>
@@ -313,7 +311,7 @@ export default function LeadsPage() {
                         value={lead.sellerId || "none"}
                         onValueChange={(value) => handleQuickSellerChange(lead.id, value)}
                       >
-                        <SelectTrigger className="w-[130px] h-8">
+                        <SelectTrigger className="w-[130px]" data-testid={`select-seller-${lead.id}`}>
                           <SelectValue placeholder="Atribuir" />
                         </SelectTrigger>
                         <SelectContent>
@@ -332,10 +330,11 @@ export default function LeadsPage() {
                           type="date"
                           value={lead.dueDate ? new Date(lead.dueDate).toISOString().split("T")[0] : ""}
                           onChange={(e) => handleQuickDueDateChange(lead.id, e.target.value)}
-                          className={`w-[140px] h-8 ${isOverdue(lead.dueDate) ? "border-red-500 text-red-500" : ""}`}
+                          className={`w-[140px] ${isOverdue(lead.dueDate) ? "border-destructive text-destructive" : ""}`}
+                          data-testid={`input-duedate-${lead.id}`}
                         />
                         {isOverdue(lead.dueDate) && (
-                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <AlertCircle className="h-4 w-4 text-destructive" />
                         )}
                       </div>
                     </TableCell>
@@ -501,10 +500,18 @@ export default function LeadsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditDialogOpen(false)}
+              data-testid="button-cancel-edit"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+            <Button 
+              onClick={handleSaveEdit} 
+              disabled={updateMutation.isPending}
+              data-testid="button-save-edit"
+            >
               {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar
             </Button>
