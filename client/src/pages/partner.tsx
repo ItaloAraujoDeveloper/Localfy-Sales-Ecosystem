@@ -10,7 +10,10 @@ import {
   Phone,
   MapPin,
   Check,
-  MessageCircle
+  MessageCircle,
+  Calendar,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -194,11 +197,37 @@ export default function PartnerPage() {
     queryKey: ["/api/commissions"],
   });
 
-  // For demo, show all leads with sellers assigned
+  // Get today's date for comparison (start of day)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Filter leads
   const myLeads = leads?.filter(l => l.sellerId && l.status !== "lost") || [];
   const wonLeads = myLeads.filter(l => l.status === "won");
+  const activeLeads = myLeads.filter(l => l.status !== "won");
   
-  // Calculate earnings
+  // Leads to call today (dueDate is today)
+  const todayCalls = activeLeads.filter(l => {
+    if (!l.dueDate) return false;
+    const dueDate = new Date(l.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate.getTime() === today.getTime();
+  });
+
+  // Overdue leads (dueDate is before today)
+  const overdueLeads = activeLeads.filter(l => {
+    if (!l.dueDate) return false;
+    const dueDate = new Date(l.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate.getTime() < today.getTime();
+  });
+
+  // Leads without due date that need scheduling
+  const needsScheduling = activeLeads.filter(l => !l.dueDate);
+  
+  // Calculate monthly commission earnings
   const monthlyEarnings = wonLeads.reduce((sum, l) => {
     const value = parseFloat(l.monthlyValue || "0");
     return sum + (value * 0.1); // 10% commission
@@ -231,44 +260,58 @@ export default function PartnerPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Target className="h-6 w-6 text-primary" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Phone className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Leads Ativos</p>
-                <p className="text-2xl font-bold">{myLeads.length}</p>
+                <p className="text-xs text-muted-foreground">Ligações Hoje</p>
+                <p className="text-xl font-bold">{todayCalls.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-accent" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-orange-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Vendas Fechadas</p>
-                <p className="text-2xl font-bold">{wonLeads.length}</p>
+                <p className="text-xs text-muted-foreground">Atrasados</p>
+                <p className="text-xl font-bold text-orange-500">{overdueLeads.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Vendas Fechadas</p>
+                <p className="text-xl font-bold text-green-500">{wonLeads.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Wallet className="h-6 w-6" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <Wallet className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm opacity-80">Comissões do Mês</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xs opacity-80">Comissão Mensal</p>
+                <p className="text-xl font-bold">
                   R$ {monthlyEarnings.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
@@ -277,23 +320,79 @@ export default function PartnerPage() {
         </Card>
       </div>
 
-      {/* Leads Grid */}
+      {/* Today's Calls Section */}
+      {(todayCalls.length > 0 || overdueLeads.length > 0) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            Ligações para Hoje
+            {todayCalls.length > 0 && (
+              <Badge variant="default" className="ml-2">{todayCalls.length}</Badge>
+            )}
+          </h2>
+          
+          {overdueLeads.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm text-orange-500 font-medium mb-2 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                {overdueLeads.length} lead(s) atrasado(s) - ligue agora!
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {overdueLeads.map(lead => (
+                  <LeadActionCard key={lead.id} lead={lead} />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {todayCalls.length > 0 && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {todayCalls.map(lead => (
+                <LeadActionCard key={lead.id} lead={lead} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Won Sales Section */}
+      {wonLeads.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-green-500" />
+            Vendas Fechadas
+            <Badge variant="secondary" className="ml-2 bg-green-500/10 text-green-600">
+              {wonLeads.length}
+            </Badge>
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {wonLeads.map(lead => (
+              <LeadActionCard key={lead.id} lead={lead} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All Active Leads */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Seus Leads</h2>
-        {myLeads.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Target className="h-5 w-5" />
+          Todos os Leads Ativos
+          <Badge variant="secondary" className="ml-2">{activeLeads.length}</Badge>
+        </h2>
+        {activeLeads.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <Target className="h-16 w-16 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-semibold mb-2">Nenhum lead atribuído</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                Aguarde o administrador atribuir leads à sua carteira ou 
-                busque novos leads próximos a você.
+                Aguarde o administrador atribuir leads à sua carteira.
               </p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {myLeads.map(lead => (
+          <div className="grid gap-3 md:grid-cols-2">
+            {activeLeads.map(lead => (
               <LeadActionCard key={lead.id} lead={lead} />
             ))}
           </div>
