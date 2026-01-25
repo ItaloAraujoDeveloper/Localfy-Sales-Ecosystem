@@ -56,9 +56,10 @@ const sellerMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
-  const menuItems = adminMenuItems;
+  // Show admin menu items only for admins
+  const menuItems = isAdmin ? adminMenuItems : sellerMenuItems;
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U";
@@ -114,30 +115,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2">
-            Vendedor
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {sellerMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    className="transition-colors"
-                    data-testid={`nav-${item.url.slice(1)}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup className="mt-auto">
+            <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2">
+              Vendedor
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {sellerMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url}
+                      className="transition-colors"
+                      data-testid={`nav-${item.url.slice(1)}`}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">

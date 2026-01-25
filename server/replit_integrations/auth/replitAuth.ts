@@ -130,6 +130,9 @@ export async function setupAuth(app: Express) {
   });
 }
 
+// Admin email - only this user has admin access
+const ADMIN_EMAIL = "fl.italo.araujo@gmail.com";
+
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
@@ -157,4 +160,24 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
+};
+
+export const isAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user.claims) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const userEmail = user.claims.email;
+  if (userEmail !== ADMIN_EMAIL) {
+    return res.status(403).json({ message: "Acesso restrito a administradores" });
+  }
+
+  return next();
+};
+
+export const checkIsAdmin = (user: any): boolean => {
+  if (!user || !user.claims) return false;
+  return user.claims.email === ADMIN_EMAIL;
 };

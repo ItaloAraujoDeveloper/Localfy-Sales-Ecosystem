@@ -103,3 +103,9 @@ Preferred communication style: Simple, everyday language.
 - Services: Blue/indigo theme with quote requests
 - Retail: Green/teal theme with product catalog
 - Generic: Neutral theme for institutional sites
+
+### Admin Configuration
+- Admin email: `fl.italo.araujo@gmail.com`
+- Only the admin can create, update, and delete sellers
+- Regular users see only the Partner App (Minha Carteira)
+- Admin users see full admin menu (Dashboard, Lead Radar, CRM, Vendedores, Partner App)

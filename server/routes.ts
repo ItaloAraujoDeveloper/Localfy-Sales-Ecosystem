@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -125,8 +125,8 @@ export async function registerRoutes(
     }
   });
 
-  // Create seller
-  app.post("/api/sellers", isAuthenticated, async (req, res) => {
+  // Create seller (admin only)
+  app.post("/api/sellers", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const data = insertSellerSchema.parse(req.body);
       const seller = await storage.createSeller(data);
@@ -140,8 +140,8 @@ export async function registerRoutes(
     }
   });
 
-  // Update seller
-  app.patch("/api/sellers/:id", isAuthenticated, async (req, res) => {
+  // Update seller (admin only)
+  app.patch("/api/sellers/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const data = updateSellerSchema.parse(req.body);
       const seller = await storage.updateSeller(req.params.id, data);
@@ -158,8 +158,8 @@ export async function registerRoutes(
     }
   });
 
-  // Delete seller
-  app.delete("/api/sellers/:id", isAuthenticated, async (req, res) => {
+  // Delete seller (admin only)
+  app.delete("/api/sellers/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       await storage.deleteSeller(req.params.id);
       res.status(204).send();
