@@ -1,0 +1,378 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Search, 
+  Radar as RadarIcon,
+  MapPin,
+  Phone,
+  Star,
+  Building2,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Loader2
+} from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Lead } from "@shared/schema";
+import { BUSINESS_CATEGORIES, CATEGORY_LABELS, type BusinessCategory } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+
+interface DiscoveredBusiness {
+  id: string;
+  name: string;
+  category: BusinessCategory;
+  address: string;
+  city: string;
+  phone: string;
+  rating: number;
+  reviewCount: number;
+  hasWebsite: boolean;
+}
+
+export default function RadarPage() {
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [location, setLocation] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [discoveredBusinesses, setDiscoveredBusinesses] = useState<DiscoveredBusiness[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const { data: existingLeads } = useQuery<Lead[]>({
+    queryKey: ["/api/leads"],
+  });
+
+  // Simulated search - in production this would call Google Maps API
+  const handleSearch = async () => {
+    if (!searchTerm || !location) {
+      toast({ title: "Preencha o termo e localização", variant: "destructive" });
+      return;
+    }
+
+    setIsSearching(true);
+    setDiscoveredBusinesses([]);
+    setSelectedIds(new Set());
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Generate mock results based on search term
+    const categories: BusinessCategory[] = ["gastronomy", "health_beauty", "services", "retail"];
+    const mockResults: DiscoveredBusiness[] = [];
+    
+    const businessTypes: Record<string, { names: string[], category: BusinessCategory }> = {
+      "restaurante": { 
+        names: ["Sabor da Terra", "Cantinho Italiano", "Churrascaria Gaucha", "Sushi Express", "Pizzaria Bella"],
+        category: "gastronomy"
+      },
+      "padaria": { 
+        names: ["Padaria Pao Quente", "Casa do Pao", "Padaria Estrela", "Padoca do Zé", "Delícias da Manhã"],
+        category: "gastronomy"
+      },
+      "clinica": { 
+        names: ["Clinica Vida", "Centro Medico Saude", "Clinica Bem Estar", "Fisio Center", "OdontoPlus"],
+        category: "health_beauty"
+      },
+      "salao": { 
+        names: ["Studio Beauty", "Salao Glamour", "Hair Design", "Beleza Total", "Espaço da Beleza"],
+        category: "health_beauty"
+      },
+      "oficina": { 
+        names: ["Auto Center", "Mecanica Express", "Car Service", "Oficina do Zé", "Auto Reparos"],
+        category: "services"
+      },
+      "loja": { 
+        names: ["Loja da Moda", "Centro Comercial", "Boutique Style", "Mega Store", "Varejo Plus"],
+        category: "retail"
+      },
+    };
+
+    const searchLower = searchTerm.toLowerCase();
+    let matchedType = Object.keys(businessTypes).find(key => searchLower.includes(key));
+    
+    if (!matchedType) {
+      matchedType = "loja"; // Default
+    }
+
+    const typeData = businessTypes[matchedType];
+    
+    for (let i = 0; i < 8; i++) {
+      const hasWebsite = Math.random() > 0.6; // 40% don't have website
+      mockResults.push({
+        id: `mock-${i}-${Date.now()}`,
+        name: typeData.names[i % typeData.names.length] + (i > 4 ? ` ${i}` : ""),
+        category: typeData.category,
+        address: `Rua ${["das Flores", "Principal", "Comercial", "do Centro", "Nova"][i % 5]}, ${100 + i * 50}`,
+        city: location,
+        phone: `(11) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+        rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
+        reviewCount: Math.floor(10 + Math.random() * 200),
+        hasWebsite,
+      });
+    }
+
+    setDiscoveredBusinesses(mockResults);
+    setIsSearching(false);
+
+    const withoutSite = mockResults.filter(b => !b.hasWebsite).length;
+    toast({ 
+      title: `${mockResults.length} negocios encontrados`,
+      description: `${withoutSite} sem website detectados`,
+    });
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async (businesses: DiscoveredBusiness[]) => {
+      const results = await Promise.all(
+        businesses.map(b => 
+          apiRequest("POST", "/api/leads", {
+            businessName: b.name,
+            category: b.category,
+            address: b.address,
+            city: b.city,
+            phone: b.phone,
+            rating: b.rating.toString(),
+            reviewCount: b.reviewCount,
+            status: "new",
+          })
+        )
+      );
+      return results;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ 
+        title: `${variables.length} leads importados`,
+        description: "Leads adicionados ao pipeline com sucesso",
+      });
+      // Remove imported from discovered
+      setDiscoveredBusinesses(prev => 
+        prev.filter(b => !selectedIds.has(b.id))
+      );
+      setSelectedIds(new Set());
+    },
+    onError: () => {
+      toast({ title: "Erro ao importar leads", variant: "destructive" });
+    },
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllWithoutWebsite = () => {
+    const ids = discoveredBusinesses
+      .filter(b => !b.hasWebsite)
+      .map(b => b.id);
+    setSelectedIds(new Set(ids));
+  };
+
+  const handleImport = () => {
+    const toImport = discoveredBusinesses.filter(b => selectedIds.has(b.id));
+    if (toImport.length === 0) {
+      toast({ title: "Selecione ao menos um negocio", variant: "destructive" });
+      return;
+    }
+    importMutation.mutate(toImport);
+  };
+
+  const businessesWithoutSite = discoveredBusinesses.filter(b => !b.hasWebsite);
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold">Lead Radar</h1>
+        <p className="text-muted-foreground">
+          Encontre empresas sem presença digital na sua região
+        </p>
+      </div>
+
+      {/* Search Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RadarIcon className="h-5 w-5 text-primary" />
+            Buscar Negocios
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="term">Termo de Busca</Label>
+              <Input
+                id="term"
+                placeholder="Ex: restaurante, clinica, oficina..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                data-testid="input-search-term"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Localização</Label>
+              <Input
+                id="location"
+                placeholder="Ex: São Paulo, Zona Sul"
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                data-testid="input-location"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button 
+                onClick={handleSearch} 
+                disabled={isSearching}
+                className="w-full"
+                data-testid="button-search"
+              >
+                {isSearching ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                {isSearching ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Results */}
+      {discoveredBusinesses.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle>Resultados da Busca</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {businessesWithoutSite.length} negocios sem website detectados
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={selectAllWithoutWebsite}
+                data-testid="button-select-all"
+              >
+                Selecionar Sem Site
+              </Button>
+              <Button 
+                size="sm"
+                onClick={handleImport}
+                disabled={selectedIds.size === 0 || importMutation.isPending}
+                data-testid="button-import"
+              >
+                {importMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                Importar ({selectedIds.size})
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {discoveredBusinesses.map(business => (
+                <div
+                  key={business.id}
+                  className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
+                    selectedIds.has(business.id) 
+                      ? "border-primary bg-primary/5" 
+                      : "hover-elevate"
+                  } ${business.hasWebsite ? "opacity-60" : ""}`}
+                >
+                  <Checkbox
+                    checked={selectedIds.has(business.id)}
+                    onCheckedChange={() => toggleSelect(business.id)}
+                    disabled={business.hasWebsite}
+                    data-testid={`checkbox-business-${business.id}`}
+                  />
+                  
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Building2 className="h-6 w-6 text-primary" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold truncate">{business.name}</h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {CATEGORY_LABELS[business.category]}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{business.address}, {business.city}</span>
+                      </div>
+                      {business.phone && (
+                        <div className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          <span>{business.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1 text-sm">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span>{business.rating}</span>
+                      <span className="text-muted-foreground">({business.reviewCount})</span>
+                    </div>
+                    
+                    {business.hasWebsite ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Com Site
+                      </Badge>
+                    ) : (
+                      <Badge className="gap-1 bg-accent text-accent-foreground">
+                        <XCircle className="h-3 w-3" />
+                        Sem Site
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!isSearching && discoveredBusinesses.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <RadarIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Inicie uma Busca</h3>
+            <p className="text-muted-foreground text-center max-w-md">
+              Digite um termo de busca e localização para encontrar negocios sem 
+              presença digital na região.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
