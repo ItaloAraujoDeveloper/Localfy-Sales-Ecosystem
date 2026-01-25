@@ -10,6 +10,7 @@ export * from "./models/auth";
 export const userRoleEnum = pgEnum("user_role", ["admin", "seller"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "distributed", "negotiating", "won", "lost"]);
 export const businessCategoryEnum = pgEnum("business_category", ["gastronomy", "health_beauty", "services", "retail", "generic"]);
+export const activityTypeEnum = pgEnum("activity_type", ["status_change", "call", "note", "site_generated", "assignment"]);
 
 // Sellers table - extends users with seller-specific data
 export const sellers = pgTable("sellers", {
@@ -73,15 +74,39 @@ export const commissions = pgTable("commissions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Lead Activities table - CRM history
+export const leadActivities = pgTable("lead_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").notNull(),
+  sellerId: varchar("seller_id"),
+  activityType: activityTypeEnum("activity_type").notNull(),
+  description: text("description").notNull(),
+  previousStatus: leadStatusEnum("previous_status"),
+  newStatus: leadStatusEnum("new_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const sellersRelations = relations(sellers, ({ many }) => ({
   leads: many(leads),
   commissions: many(commissions),
 }));
 
-export const leadsRelations = relations(leads, ({ one }) => ({
+export const leadsRelations = relations(leads, ({ one, many }) => ({
   seller: one(sellers, {
     fields: [leads.sellerId],
+    references: [sellers.id],
+  }),
+  activities: many(leadActivities),
+}));
+
+export const leadActivitiesRelations = relations(leadActivities, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadActivities.leadId],
+    references: [leads.id],
+  }),
+  seller: one(sellers, {
+    fields: [leadActivities.sellerId],
     references: [sellers.id],
   }),
 }));
@@ -118,6 +143,11 @@ export const insertCommissionSchema = createInsertSchema(commissions).omit({
   createdAt: true,
 });
 
+export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Update schemas (partial versions)
 export const updateSellerSchema = insertSellerSchema.partial();
 export const updateLeadSchema = insertLeadSchema.partial();
@@ -134,6 +164,22 @@ export type Template = typeof templates.$inferSelect;
 
 export type InsertCommission = z.infer<typeof insertCommissionSchema>;
 export type Commission = typeof commissions.$inferSelect;
+
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+export type LeadActivity = typeof leadActivities.$inferSelect;
+
+// Activity types
+export const ACTIVITY_TYPES = ["status_change", "call", "note", "site_generated", "assignment"] as const;
+export type ActivityType = typeof ACTIVITY_TYPES[number];
+
+// Activity type labels for display
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  status_change: "Mudanca de Status",
+  call: "Ligacao Realizada",
+  note: "Nota Adicionada",
+  site_generated: "Site Gerado",
+  assignment: "Atribuicao de Vendedor",
+};
 
 // Lead status for Kanban
 export const LEAD_STATUSES = ["new", "distributed", "negotiating", "won", "lost"] as const;

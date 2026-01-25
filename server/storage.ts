@@ -1,9 +1,10 @@
 import { 
-  sellers, leads, templates, commissions,
+  sellers, leads, templates, commissions, leadActivities,
   type Seller, type InsertSeller,
   type Lead, type InsertLead,
   type Template, type InsertTemplate,
   type Commission, type InsertCommission,
+  type LeadActivity, type InsertLeadActivity,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -34,6 +35,10 @@ export interface IStorage {
   getCommissions(): Promise<Commission[]>;
   getCommissionsBySeller(sellerId: string): Promise<Commission[]>;
   createCommission(commission: InsertCommission): Promise<Commission>;
+
+  // Lead Activities (CRM History)
+  getLeadActivities(leadId: string): Promise<LeadActivity[]>;
+  createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity>;
 }
 
 function generateSlug(name: string): string {
@@ -152,6 +157,20 @@ export class DatabaseStorage implements IStorage {
   async createCommission(data: InsertCommission): Promise<Commission> {
     const [commission] = await db.insert(commissions).values(data).returning();
     return commission;
+  }
+
+  // Lead Activities (CRM History)
+  async getLeadActivities(leadId: string): Promise<LeadActivity[]> {
+    return await db
+      .select()
+      .from(leadActivities)
+      .where(eq(leadActivities.leadId, leadId))
+      .orderBy(desc(leadActivities.createdAt));
+  }
+
+  async createLeadActivity(data: InsertLeadActivity): Promise<LeadActivity> {
+    const [activity] = await db.insert(leadActivities).values(data).returning();
+    return activity;
   }
 }
 
