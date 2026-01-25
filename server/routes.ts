@@ -284,6 +284,134 @@ export async function registerRoutes(
     }
   });
 
+  // ========== AI SITE GENERATION ==========
+
+  // Generate site content for a lead using AI (admin only)
+  app.post("/api/leads/:id/generate-site", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { customPrompt } = req.body;
+
+      const lead = await storage.getLead(id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Detect business type from name
+      const businessName = lead.businessName.toLowerCase();
+      let businessType = "empresa";
+      let category = lead.category || "generic";
+      
+      // Fitness/Academia detection
+      if (businessName.includes("academia") || businessName.includes("fitness") || 
+          businessName.includes("gym") || businessName.includes("crossfit") ||
+          businessName.includes("musculacao") || businessName.includes("pilates")) {
+        businessType = "academia";
+        category = "services";
+      }
+      // Salon/Beauty detection
+      else if (businessName.includes("salao") || businessName.includes("salon") ||
+               businessName.includes("barbearia") || businessName.includes("cabelereiro") ||
+               businessName.includes("estetica") || businessName.includes("beleza") ||
+               businessName.includes("spa") || businessName.includes("nails") ||
+               businessName.includes("manicure")) {
+        businessType = "salao";
+        category = "health_beauty";
+      }
+      // Restaurant/Food detection
+      else if (businessName.includes("restaurante") || businessName.includes("lanchonete") ||
+               businessName.includes("pizzaria") || businessName.includes("hamburguer") ||
+               businessName.includes("burger") || businessName.includes("lanches") ||
+               businessName.includes("cafe") || businessName.includes("padaria") ||
+               businessName.includes("bar") || businessName.includes("churrascaria")) {
+        businessType = "restaurante";
+        category = "gastronomy";
+      }
+      // Store/Retail detection
+      else if (businessName.includes("loja") || businessName.includes("store") ||
+               businessName.includes("boutique") || businessName.includes("mercado") ||
+               businessName.includes("supermercado") || businessName.includes("farmacia") ||
+               businessName.includes("pet") || businessName.includes("otica")) {
+        businessType = "loja";
+        category = "retail";
+      }
+      // Services detection
+      else if (businessName.includes("consultoria") || businessName.includes("advocacia") ||
+               businessName.includes("contabilidade") || businessName.includes("clinica") ||
+               businessName.includes("medico") || businessName.includes("dentista") ||
+               businessName.includes("oficina") || businessName.includes("mecanica")) {
+        businessType = "servicos";
+        category = "services";
+      }
+
+      // Generate content using OpenAI
+      const { openai } = await import("./replit_integrations/image/client");
+      
+      const systemPrompt = `Voce e um especialista em marketing digital e criacao de sites para pequenos negocios brasileiros.
+Gere conteudo persuasivo e profissional em portugues brasileiro.
+Seja criativo mas realista, como se o site fosse real.
+Use linguagem apropriada para o tipo de negocio.`;
+
+      const userPrompt = customPrompt ? 
+        `Gere conteudo para o site de "${lead.businessName}", um(a) ${businessType} localizado em ${lead.city || lead.address || "cidade"}. 
+Instrucoes adicionais: ${customPrompt}
+
+Retorne um JSON com:
+{
+  "headline": "frase de impacto principal (max 10 palavras)",
+  "description": "descricao do negocio (2-3 frases)",
+  "services": ["nome servico 1", "nome servico 2", "nome servico 3"],
+  "serviceDescriptions": ["descricao servico 1 (1 frase)", "descricao servico 2", "descricao servico 3"],
+  "imagePrompt": "prompt em ingles para gerar imagens profissionais deste negocio"
+}` :
+        `Gere conteudo para o site de "${lead.businessName}", um(a) ${businessType} localizado em ${lead.city || lead.address || "cidade"}.
+
+Retorne um JSON com:
+{
+  "headline": "frase de impacto principal (max 10 palavras)",
+  "description": "descricao do negocio (2-3 frases)",
+  "services": ["nome servico/produto 1", "nome servico/produto 2", "nome servico/produto 3"],
+  "serviceDescriptions": ["descricao servico 1 (1 frase)", "descricao servico 2", "descricao servico 3"],
+  "imagePrompt": "prompt em ingles para gerar imagens profissionais deste ${businessType}"
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 1000,
+      });
+
+      const content = JSON.parse(response.choices[0]?.message?.content || "{}");
+
+      // Update lead with generated content
+      const updatedLead = await storage.updateLead(id, {
+        businessType,
+        category: category as any,
+        siteGenerated: true,
+        siteHeadline: content.headline || `Bem-vindo a ${lead.businessName}`,
+        siteDescription: content.description || "Qualidade e excelencia em cada servico.",
+        siteServices: content.services || ["Servico 1", "Servico 2", "Servico 3"],
+        siteServiceDescriptions: content.serviceDescriptions || ["Descricao 1", "Descricao 2", "Descricao 3"],
+        imagePrompt: content.imagePrompt || `Professional ${businessType} photography`,
+      });
+
+      res.json({
+        success: true,
+        businessType,
+        category,
+        content,
+        lead: updatedLead,
+      });
+    } catch (error) {
+      console.error("Error generating site:", error);
+      res.status(500).json({ message: "Falha ao gerar conteudo do site" });
+    }
+  });
+
   // ========== SELLERS ==========
 
   // Get all sellers
