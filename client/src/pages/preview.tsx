@@ -3,22 +3,98 @@ import { useQuery } from "@tanstack/react-query";
 import type { Lead } from "@shared/schema";
 import { CATEGORY_LABELS, type BusinessCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   Phone, 
   MapPin, 
   Star, 
   Clock,
-  Mail,
   MessageCircle,
-  ArrowRight,
+  ExternalLink,
   Utensils,
   Scissors,
   Wrench,
   ShoppingBag,
   Building2,
-  CheckCircle2
+  Instagram,
+  Facebook
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Import stock images
+import gastronomyHero from "../assets/images/gastronomy-hero.jpg";
+import gastronomyProduct1 from "../assets/images/gastronomy-product-1.jpg";
+import gastronomyProduct2 from "../assets/images/gastronomy-product-2.jpg";
+import gastronomyProduct3 from "../assets/images/gastronomy-product-3.jpg";
+import beautyHero from "../assets/images/beauty-hero.jpg";
+import beautyService1 from "../assets/images/beauty-service-1.jpg";
+import beautyService2 from "../assets/images/beauty-service-2.jpg";
+import beautyService3 from "../assets/images/beauty-service-3.jpg";
+import servicesHero from "../assets/images/services-hero.jpg";
+import servicesWork1 from "../assets/images/services-work-1.jpg";
+import retailHero from "../assets/images/retail-hero.jpg";
+import retailProduct1 from "../assets/images/retail-product-1.jpg";
+import retailProduct2 from "../assets/images/retail-product-2.jpg";
+import genericHero from "../assets/images/generic-hero.jpg";
+
+const CATEGORY_IMAGES: Record<BusinessCategory, { hero: string; products: string[] }> = {
+  gastronomy: {
+    hero: gastronomyHero,
+    products: [gastronomyProduct1, gastronomyProduct2, gastronomyProduct3],
+  },
+  health_beauty: {
+    hero: beautyHero,
+    products: [beautyService1, beautyService2, beautyService3],
+  },
+  services: {
+    hero: servicesHero,
+    products: [servicesWork1, servicesHero, servicesWork1],
+  },
+  retail: {
+    hero: retailHero,
+    products: [retailProduct1, retailProduct2, retailProduct1],
+  },
+  generic: {
+    hero: genericHero,
+    products: [genericHero, genericHero, genericHero],
+  },
+};
+
+const CATEGORY_PRODUCTS: Record<BusinessCategory, { name: string; desc: string }[]> = {
+  gastronomy: [
+    { name: "X-Tudo Especial", desc: "Hamburguer completo com tudo que voce imaginar" },
+    { name: "Hamburguer Artesanal", desc: "Blend especial da casa com ingredientes premium" },
+    { name: "Combo Familia", desc: "4 hamburgueres + batatas + refrigerantes" },
+  ],
+  health_beauty: [
+    { name: "Corte Feminino", desc: "Corte moderno com lavagem e finalizacao" },
+    { name: "Coloracao Completa", desc: "Coloracao profissional com produtos premium" },
+    { name: "Tratamento Facial", desc: "Limpeza de pele e hidratacao profunda" },
+  ],
+  services: [
+    { name: "Consultoria Inicial", desc: "Avaliacao completa do seu projeto" },
+    { name: "Servico Completo", desc: "Execucao profissional com garantia" },
+    { name: "Manutencao", desc: "Acompanhamento e suporte continuo" },
+  ],
+  retail: [
+    { name: "Produtos em Destaque", desc: "Os mais vendidos da nossa loja" },
+    { name: "Lancamentos", desc: "Novidades que acabaram de chegar" },
+    { name: "Promocoes", desc: "Ofertas especiais por tempo limitado" },
+  ],
+  generic: [
+    { name: "Servico Premium", desc: "Nossa especialidade com qualidade garantida" },
+    { name: "Atendimento VIP", desc: "Experiencia exclusiva para nossos clientes" },
+    { name: "Solucoes Completas", desc: "Tudo que voce precisa em um so lugar" },
+  ],
+};
+
+const CATEGORY_COLORS: Record<BusinessCategory, { primary: string; accent: string; bg: string }> = {
+  gastronomy: { primary: "#FF6B35", accent: "#FF8C5A", bg: "#1a1a1a" },
+  health_beauty: { primary: "#E91E8C", accent: "#F06ABC", bg: "#1a1a1a" },
+  services: { primary: "#3B82F6", accent: "#60A5FA", bg: "#1a1a1a" },
+  retail: { primary: "#10B981", accent: "#34D399", bg: "#1a1a1a" },
+  generic: { primary: "#8B5CF6", accent: "#A78BFA", bg: "#1a1a1a" },
+};
 
 const CATEGORY_ICONS: Record<BusinessCategory, React.ComponentType<any>> = {
   gastronomy: Utensils,
@@ -28,320 +104,453 @@ const CATEGORY_ICONS: Record<BusinessCategory, React.ComponentType<any>> = {
   generic: Building2,
 };
 
-const CATEGORY_HERO_STYLES: Record<BusinessCategory, { gradient: string; accent: string }> = {
-  gastronomy: { 
-    gradient: "from-orange-600 to-red-600", 
-    accent: "bg-orange-500" 
-  },
-  health_beauty: { 
-    gradient: "from-pink-600 to-purple-600", 
-    accent: "bg-pink-500" 
-  },
-  services: { 
-    gradient: "from-blue-600 to-indigo-600", 
-    accent: "bg-blue-500" 
-  },
-  retail: { 
-    gradient: "from-green-600 to-teal-600", 
-    accent: "bg-green-500" 
-  },
-  generic: { 
-    gradient: "from-gray-700 to-gray-900", 
-    accent: "bg-gray-600" 
-  },
-};
-
-const CATEGORY_FEATURES: Record<BusinessCategory, string[]> = {
-  gastronomy: [
-    "Cardapio Digital Completo",
-    "Pedidos via WhatsApp",
-    "Galeria de Fotos",
-    "Horario de Funcionamento",
-    "Localizacao no Mapa",
-  ],
-  health_beauty: [
-    "Agendamento Online",
-    "Lista de Servicos",
-    "Galeria de Trabalhos",
-    "Perfil Profissional",
-    "Avaliacoes de Clientes",
-  ],
-  services: [
-    "Orcamento Online",
-    "Areas de Atuacao",
-    "Portfolio de Projetos",
-    "Formulario de Contato",
-    "Depoimentos",
-  ],
-  retail: [
-    "Vitrine de Produtos",
-    "Catalogo Digital",
-    "Link para WhatsApp",
-    "Promocoes em Destaque",
-    "Localizacao da Loja",
-  ],
-  generic: [
-    "Apresentacao Profissional",
-    "Informacoes de Contato",
-    "Sobre a Empresa",
-    "Galeria de Fotos",
-    "Formulario de Contato",
-  ],
-};
-
-function GastronomyTemplate({ lead }: { lead: Lead }) {
+// WhatsApp floating button - only shows if phone exists
+function WhatsAppButton({ phone }: { phone?: string | null }) {
+  if (!phone) return null;
+  
+  const whatsappNumber = phone.replace(/\D/g, "");
+  const whatsappUrl = `https://wa.me/55${whatsappNumber}`;
+  
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Hero */}
-      <div className="relative h-[60vh] bg-gradient-to-br from-orange-600 to-red-600">
-        <div className="absolute inset-0 bg-black/30" />
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-6">
-          <div className="h-20 w-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-6">
-            <Utensils className="h-10 w-10" />
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-4">{lead.businessName}</h1>
-          <p className="text-xl opacity-90 mb-8">Sabores que encantam</p>
-          <div className="flex gap-4">
-            <Button size="lg" className="bg-white text-orange-600 border-white">
-              <Phone className="mr-2 h-5 w-5" />
-              Ligar Agora
-            </Button>
-            <Button size="lg" variant="outline" className="border-white text-white">
-              <MessageCircle className="mr-2 h-5 w-5" />
-              WhatsApp
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="bg-gray-800 py-16 px-6">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">Nossos Diferenciais</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {["Delivery Rapido", "Ingredientes Frescos", "Ambiente Acolhedor", "Pratos Exclusivos"].map((feature, i) => (
-              <div key={i} className="text-center">
-                <div className="h-12 w-12 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle2 className="h-6 w-6 text-orange-400" />
-                </div>
-                <p className="text-sm">{feature}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Contact */}
-      <div className="py-16 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-6">Fale Conosco</h2>
-          {lead.address && (
-            <div className="flex items-center justify-center gap-2 text-gray-300 mb-3">
-              <MapPin className="h-5 w-5" />
-              <span>{lead.address}</span>
-            </div>
-          )}
-          {lead.phone && (
-            <div className="flex items-center justify-center gap-2 text-gray-300 mb-6">
-              <Phone className="h-5 w-5" />
-              <span>{lead.phone}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 py-8 px-6 text-center text-gray-500">
-        <p>{lead.businessName} - Todos os direitos reservados</p>
-        <p className="text-xs mt-2">Site criado por Localfy</p>
-      </footer>
-    </div>
+    <a
+      href={whatsappUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors"
+      data-testid="button-whatsapp-float"
+    >
+      <MessageCircle className="h-7 w-7 text-white" />
+    </a>
   );
 }
 
-function HealthBeautyTemplate({ lead }: { lead: Lead }) {
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Hero */}
-      <div className="relative h-[50vh] bg-gradient-to-br from-pink-500 to-purple-600">
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-6 text-white">
-          <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-4">
-            <Scissors className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl md:text-5xl font-bold mb-3">{lead.businessName}</h1>
-          <p className="text-lg opacity-90 mb-6">Beleza e bem-estar para voce</p>
-          <Button size="lg" className="bg-white text-pink-600 border-white">
-            Agendar Horario
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Services */}
-      <div className="py-16 px-6 bg-pink-50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">Nossos Servicos</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {["Cortes", "Coloracao", "Tratamentos", "Manicure", "Maquiagem", "Depilacao"].map((service, i) => (
-              <div key={i} className="bg-white p-6 rounded-xl shadow-sm text-center">
-                <p className="font-semibold text-gray-800">{service}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Contact */}
-      <div className="py-16 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Entre em Contato</h2>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-            {lead.phone && (
-              <Button size="lg" className="bg-pink-500">
-                <Phone className="mr-2 h-5 w-5" />
-                {lead.phone}
-              </Button>
-            )}
-            <Button size="lg" variant="outline">
-              <MessageCircle className="mr-2 h-5 w-5" />
-              WhatsApp
-            </Button>
-          </div>
-          {lead.address && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 mt-6">
-              <MapPin className="h-5 w-5" />
-              <span>{lead.address}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-100 py-8 px-6 text-center text-gray-500">
-        <p>{lead.businessName}</p>
-        <p className="text-xs mt-2">Powered by Localfy</p>
-      </footer>
-    </div>
-  );
-}
-
-function GenericTemplate({ lead }: { lead: Lead }) {
+function PreviewTemplate({ lead }: { lead: Lead }) {
   const category = (lead.category as BusinessCategory) || "generic";
-  const styles = CATEGORY_HERO_STYLES[category];
+  const colors = CATEGORY_COLORS[category];
+  const images = CATEGORY_IMAGES[category];
+  const products = CATEGORY_PRODUCTS[category];
   const Icon = CATEGORY_ICONS[category];
-  const features = CATEGORY_FEATURES[category];
+
+  const whatsappNumber = lead.phone?.replace(/\D/g, "") || "";
+  const whatsappUrl = `https://wa.me/55${whatsappNumber}`;
+
+  // Extract city from address
+  const city = lead.city || lead.address?.split(",").pop()?.trim() || "sua cidade";
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero */}
-      <div className={`relative h-[50vh] bg-gradient-to-br ${styles.gradient}`}>
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-6 text-white">
-          <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-4">
-            <Icon className="h-8 w-8" />
+    <div className="min-h-screen" style={{ backgroundColor: colors.bg, color: "#ffffff" }}>
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-lg border-b border-white/10">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div 
+              className="h-10 w-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.primary }}
+            >
+              <Icon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-bold text-white">{lead.businessName}</h1>
+              <p className="text-xs text-white/60">{city}</p>
+            </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold mb-3">{lead.businessName}</h1>
-          <p className="text-lg opacity-90 mb-2">
-            {CATEGORY_LABELS[category]}
-          </p>
-          {lead.rating && (
-            <div className="flex items-center gap-1 mb-6">
-              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold">{parseFloat(lead.rating).toFixed(1)}</span>
-              {lead.reviewCount && (
-                <span className="opacity-75">({lead.reviewCount} avaliacoes)</span>
+          {lead.phone && (
+            <Button 
+              asChild 
+              size="sm"
+              style={{ backgroundColor: colors.primary }}
+              className="text-white border-0"
+              data-testid="button-header-cta"
+            >
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Peca Agora
+              </a>
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="pt-16 min-h-[80vh] flex items-center">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                O Melhor{" "}
+                <span style={{ color: colors.primary }}>
+                  {CATEGORY_LABELS[category]}
+                </span>
+                <br />de {city}
+              </h2>
+              <p className="text-lg text-white/70 max-w-lg">
+                Qualidade incomparavel no coracao da cidade. 
+                {lead.phone && " Entre em contato pelo WhatsApp e faca seu pedido."}
+                {!lead.phone && " Venha nos visitar!"}
+              </p>
+              {lead.phone && (
+                <Button 
+                  asChild 
+                  size="lg"
+                  style={{ backgroundColor: colors.primary }}
+                  className="text-white border-0"
+                  data-testid="button-hero-cta"
+                >
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="mr-2 h-5 w-5" />
+                    Fazer Pedido no WhatsApp
+                  </a>
+                </Button>
               )}
             </div>
-          )}
-          <div className="flex gap-4">
-            <Button size="lg" className="bg-white text-gray-800 border-white">
-              <Phone className="mr-2 h-5 w-5" />
-              Contato
-            </Button>
-            <Button size="lg" variant="outline" className="border-white text-white">
-              <MessageCircle className="mr-2 h-5 w-5" />
-              WhatsApp
-            </Button>
+            <div className="relative">
+              <div 
+                className="absolute -inset-4 rounded-3xl opacity-30 blur-3xl"
+                style={{ backgroundColor: colors.primary }}
+              />
+              <img
+                src={images.hero}
+                alt={lead.businessName}
+                className="relative rounded-2xl shadow-2xl w-full aspect-square object-cover ring-4"
+                style={{ ringColor: colors.primary }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features */}
-      <div className="py-16 px-6 bg-gray-50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">O que oferecemos</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature, i) => (
-              <div key={i} className="flex items-center gap-3 p-4 bg-white rounded-lg shadow-sm">
-                <CheckCircle2 className={`h-5 w-5 ${styles.accent.replace('bg-', 'text-')}`} />
-                <span className="text-gray-700">{feature}</span>
+      {/* Info Cards */}
+      <section className="py-12 bg-black/30">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Address */}
+            {lead.address && (
+              <Card className="bg-white/5 border-white/10 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div 
+                      className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${colors.primary}20` }}
+                    >
+                      <MapPin className="h-5 w-5" style={{ color: colors.primary }} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Endereco</h3>
+                      <p className="text-sm text-white/70">{lead.address}</p>
+                      <a 
+                        href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm mt-2 inline-flex items-center gap-1"
+                        style={{ color: colors.primary }}
+                      >
+                        Ver no Maps <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hours */}
+            <Card className="bg-white/5 border-white/10 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div 
+                    className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${colors.primary}20` }}
+                  >
+                    <Clock className="h-5 w-5" style={{ color: colors.primary }} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Horarios</h3>
+                    <p className="text-sm text-white/70">Segunda-feira</p>
+                    <p className="text-sm" style={{ color: colors.primary }}>Fechado</p>
+                    <p className="text-sm text-white/70 mt-1">Terca a Domingo</p>
+                    <p className="text-sm text-white">10:00 - 22:00</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contact */}
+            {lead.phone && (
+              <Card className="bg-white/5 border-white/10 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div 
+                      className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${colors.primary}20` }}
+                    >
+                      <Phone className="h-5 w-5" style={{ color: colors.primary }} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Contato</h3>
+                      <p className="text-sm text-white">{lead.phone}</p>
+                      <a 
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm mt-2 inline-flex items-center gap-1"
+                        style={{ color: colors.primary }}
+                      >
+                        Chamar no WhatsApp <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Products/Services Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              {category === "gastronomy" ? "Nosso Cardapio" : 
+               category === "health_beauty" ? "Nossos Servicos" :
+               category === "retail" ? "Nossos Produtos" : "O que Oferecemos"}
+            </h2>
+            <p className="text-white/60 max-w-xl mx-auto">
+              {category === "gastronomy" 
+                ? "Lanches artesanais feitos com ingredientes frescos e de qualidade"
+                : category === "health_beauty"
+                ? "Profissionais qualificados para cuidar da sua beleza"
+                : "Qualidade e excelencia em tudo que fazemos"}
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {products.map((product, i) => (
+              <div 
+                key={i} 
+                className="group rounded-2xl overflow-hidden border-2 transition-all duration-300"
+                style={{ borderColor: `${colors.primary}60` }}
+              >
+                <div className="aspect-square overflow-hidden">
+                  <img
+                    src={images.products[i]}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+                <div className="p-6 bg-white/5">
+                  <h3 className="font-bold text-lg mb-2">{product.name}</h3>
+                  <p className="text-sm text-white/60 mb-4">{product.desc}</p>
+                  <Button 
+                    asChild 
+                    className="w-full text-white border-0"
+                    style={{ backgroundColor: colors.primary }}
+                  >
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Pedir no WhatsApp
+                    </a>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Contact Section */}
-      <div className="py-16 px-6">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">Entre em Contato</h2>
-          <div className="bg-gray-50 rounded-2xl p-8 space-y-4">
-            {lead.address && (
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-gray-400 mt-1" />
-                <div>
-                  <p className="font-medium text-gray-800">Endereco</p>
-                  <p className="text-gray-600">{lead.address}</p>
+      {/* Reviews Section */}
+      {lead.rating && (
+        <section className="py-16 bg-black/30">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Avaliacoes dos Clientes</h2>
+              <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star 
+                      key={star}
+                      className={`h-6 w-6 ${
+                        star <= Math.round(parseFloat(lead.rating || "0"))
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-white/30"
+                      }`}
+                    />
+                  ))}
                 </div>
+                <span className="text-2xl font-bold ml-2">
+                  {parseFloat(lead.rating).toFixed(1)}
+                </span>
+                {lead.reviewCount && (
+                  <span className="text-white/60">
+                    ({lead.reviewCount} avaliacoes)
+                  </span>
+                )}
               </div>
-            )}
-            {lead.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="h-5 w-5 text-gray-400 mt-1" />
+            </div>
+
+            {/* Fake reviews */}
+            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              {[
+                { name: "Maria S.", text: "Excelente atendimento! Recomendo muito.", rating: 5 },
+                { name: "Joao P.", text: "Qualidade impecavel, voltarei com certeza.", rating: 5 },
+                { name: "Ana C.", text: "Melhor da regiao, precos justos.", rating: 4 },
+              ].map((review, i) => (
+                <Card key={i} className="bg-white/5 border-white/10 text-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-1 mb-3">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star 
+                          key={star}
+                          className={`h-4 w-4 ${
+                            star <= review.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-white/30"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-white/80 mb-3">"{review.text}"</p>
+                    <p className="text-sm font-semibold">{review.name}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Map Section */}
+      {lead.address && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Onde Estamos</h2>
+              <p className="text-white/60">Venha nos visitar em {city}</p>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
+              <div className="rounded-2xl overflow-hidden border border-white/10">
+                <iframe
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(lead.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                  width="100%"
+                  height="400"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Localizacao"
+                />
+              </div>
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-white/5 rounded-2xl">
                 <div>
-                  <p className="font-medium text-gray-800">Telefone</p>
-                  <p className="text-gray-600">{lead.phone}</p>
+                  <h3 className="font-bold text-lg">{lead.businessName}</h3>
+                  <p className="text-sm text-white/60">{lead.address}</p>
                 </div>
-              </div>
-            )}
-            <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-gray-400 mt-1" />
-              <div>
-                <p className="font-medium text-gray-800">Horario</p>
-                <p className="text-gray-600">Segunda a Sexta: 9h - 18h</p>
+                <Button 
+                  asChild
+                  style={{ backgroundColor: colors.primary }}
+                  className="text-white border-0"
+                >
+                  <a 
+                    href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Abrir no Maps
+                  </a>
+                </Button>
               </div>
             </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
-            <Button size="lg" className={styles.accent}>
-              <Phone className="mr-2 h-5 w-5" />
-              Ligar Agora
-            </Button>
-            <Button size="lg" variant="outline">
-              <MessageCircle className="mr-2 h-5 w-5" />
-              Enviar Mensagem
-            </Button>
-          </div>
-        </div>
-      </div>
+        </section>
+      )}
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-            <Icon className="h-6 w-6" />
+      <footer className="py-12 bg-black border-t border-white/10">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-4 gap-8 mb-12">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div 
+                  className="h-10 w-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: colors.primary }}
+                >
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold">{lead.businessName}</h3>
+                  <p className="text-xs text-white/60">{city}</p>
+                </div>
+              </div>
+              <p className="text-sm text-white/60">
+                {category === "gastronomy" 
+                  ? "O melhor sabor da cidade. Ambiente acolhedor e sabor inesquecivel desde sempre."
+                  : category === "health_beauty"
+                  ? "Cuidando da sua beleza com profissionalismo e dedicacao."
+                  : "Qualidade e excelencia em cada servico que oferecemos."}
+              </p>
+            </div>
+
+            {/* Links */}
+            <div>
+              <h4 className="font-semibold mb-4">Links Rapidos</h4>
+              <ul className="space-y-2 text-sm text-white/60">
+                <li><a href="#" className="hover:text-white transition-colors">Cardapio</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Localizacao</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Fazer Pedido</a></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="font-semibold mb-4">Contato</h4>
+              <ul className="space-y-2 text-sm text-white/60">
+                {lead.phone && (
+                  <li className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" style={{ color: colors.primary }} />
+                    {lead.phone}
+                  </li>
+                )}
+                {lead.address && (
+                  <li className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 mt-0.5" style={{ color: colors.primary }} />
+                    <span>{lead.address}</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            {/* Hours */}
+            <div>
+              <h4 className="font-semibold mb-4">Horario de Funcionamento</h4>
+              <ul className="space-y-1 text-sm">
+                <li className="text-white/60">Segunda-feira</li>
+                <li style={{ color: colors.primary }}>Fechado</li>
+                <li className="text-white/60 mt-2">Terca a Domingo</li>
+                <li className="text-white">10:00 - 22:00</li>
+              </ul>
+            </div>
           </div>
-          <h3 className="text-xl font-bold mb-2">{lead.businessName}</h3>
-          {lead.address && (
-            <p className="text-gray-400 mb-4">{lead.address}</p>
-          )}
-          <p className="text-gray-500 text-sm">
-            Site criado automaticamente por Localfy
-          </p>
+
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-white/10">
+            <p className="text-sm text-white/40">
+              {new Date().getFullYear()} {lead.businessName}. Todos os direitos reservados.
+            </p>
+            <div className="flex items-center gap-4">
+              <a href="#" className="text-white/40 hover:text-white transition-colors">
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white transition-colors">
+                <MessageCircle className="h-5 w-5" />
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
+
+      {/* WhatsApp Float Button */}
+      <WhatsAppButton phone={lead.phone} />
     </div>
   );
 }
@@ -362,7 +571,7 @@ export default function PreviewPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Skeleton className="h-16 w-16 rounded-full mx-auto mb-4" />
           <Skeleton className="h-8 w-48 mx-auto mb-2" />
@@ -374,25 +583,15 @@ export default function PreviewPage() {
 
   if (error || !lead) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Pagina nao encontrada</h1>
-          <p className="text-gray-600">O preview solicitado nao existe ou foi removido.</p>
+          <Building2 className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Pagina nao encontrada</h1>
+          <p className="text-gray-400">O preview solicitado nao existe ou foi removido.</p>
         </div>
       </div>
     );
   }
 
-  // Render template based on category
-  const category = (lead.category as BusinessCategory) || "generic";
-  
-  switch (category) {
-    case "gastronomy":
-      return <GastronomyTemplate lead={lead} />;
-    case "health_beauty":
-      return <HealthBeautyTemplate lead={lead} />;
-    default:
-      return <GenericTemplate lead={lead} />;
-  }
+  return <PreviewTemplate lead={lead} />;
 }
