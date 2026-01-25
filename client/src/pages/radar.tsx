@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lead } from "@shared/schema";
+import type { Lead, Seller } from "@shared/schema";
 import { BUSINESS_CATEGORIES, CATEGORY_LABELS, type BusinessCategory } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,10 +50,17 @@ export default function RadarPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [discoveredBusinesses, setDiscoveredBusinesses] = useState<DiscoveredBusiness[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sellerAssignments, setSellerAssignments] = useState<Record<string, string>>({});
 
   const { data: existingLeads } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
   });
+
+  const { data: sellers } = useQuery<Seller[]>({
+    queryKey: ["/api/sellers"],
+  });
+
+  const activeSellers = sellers?.filter(s => s.isActive) || [];
 
   // Search using real Google Places API
   const handleSearch = async () => {
@@ -83,7 +90,7 @@ export default function RadarPage() {
       const resultsWithImportStatus = results.map(b => ({
         ...b,
         alreadyImported: existingNames.has(b.name.toLowerCase()) || 
-                         (b.phone && existingPhones.has(b.phone.replace(/\D/g, "")))
+                         (b.phone ? existingPhones.has(b.phone.replace(/\D/g, "")) : false)
       }));
       
       setDiscoveredBusinesses(resultsWithImportStatus);
@@ -118,7 +125,8 @@ export default function RadarPage() {
             phone: b.phone,
             rating: b.rating.toString(),
             reviewCount: b.reviewCount,
-            status: "new",
+            status: sellerAssignments[b.id] ? "distributed" : "new",
+            sellerId: sellerAssignments[b.id] || null,
           })
         )
       );
@@ -135,11 +143,19 @@ export default function RadarPage() {
         prev.filter(b => !selectedIds.has(b.id))
       );
       setSelectedIds(new Set());
+      setSellerAssignments({});
     },
     onError: () => {
       toast({ title: "Erro ao importar leads", variant: "destructive" });
     },
   });
+
+  const assignSeller = (businessId: string, sellerId: string) => {
+    setSellerAssignments(prev => ({
+      ...prev,
+      [businessId]: sellerId === "none" ? "" : sellerId,
+    }));
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -308,12 +324,31 @@ export default function RadarPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1 text-sm">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                       <span>{business.rating}</span>
                       <span className="text-muted-foreground">({business.reviewCount})</span>
                     </div>
+                    
+                    {!business.alreadyImported && !business.hasWebsite && activeSellers.length > 0 && (
+                      <Select
+                        value={sellerAssignments[business.id] || "none"}
+                        onValueChange={(value) => assignSeller(business.id, value)}
+                      >
+                        <SelectTrigger className="w-[140px] h-8" data-testid={`select-seller-${business.id}`}>
+                          <SelectValue placeholder="Vendedor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem vendedor</SelectItem>
+                          {activeSellers.map(seller => (
+                            <SelectItem key={seller.id} value={seller.id}>
+                              {seller.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     
                     {business.alreadyImported ? (
                       <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
