@@ -97,12 +97,25 @@ Preferred communication style: Simple, everyday language.
 - **Sellers** (`/sellers`): Admin panel for managing sales team
 - **Preview** (`/ver/:slug`): Public preview pages with category-specific templates
 
-### Category Templates
-- Gastronomy: Orange/red theme with restaurant-focused features
-- Health & Beauty: Pink/purple theme with appointment scheduling
-- Services: Blue/indigo theme with quote requests
-- Retail: Green/teal theme with product catalog
-- Generic: Neutral theme for institutional sites
+### Category Templates (Professional Preview Sites)
+Each category has a fully-designed preview page with:
+- **Fixed header** with business logo and WhatsApp CTA button
+- **Hero section** with large product/service image and compelling headline
+- **Info cards** showing address, hours, and contact info
+- **Products/services grid** with 3 items and WhatsApp order buttons
+- **Customer reviews** section with fake testimonials
+- **Google Maps embed** with address
+- **Professional footer** with business info, links, and social icons
+- **WhatsApp floating button** (bottom-right corner)
+
+Category themes and stock images:
+- **Gastronomy** (Orange #FF6B35): Burger/food images, "Nosso Cardapio", X-Tudo, Hamburguer Artesanal, Combo Familia
+- **Health & Beauty** (Pink #E91E8C): Salon/spa images, "Nossos Servicos", Corte Feminino, Coloracao, Tratamento Facial
+- **Services** (Blue #3B82F6): Gym/professional images, consultoria, servico completo, manutencao
+- **Retail** (Green #10B981): Store/shopping images, produtos destaque, lancamentos, promocoes
+- **Generic** (Purple #8B5CF6): Office/corporate images, servico premium, atendimento VIP
+
+Stock images are stored in `client/src/assets/images/` organized by category prefix.
 
 ### Authentication System
 - **Email/Password Login**: Traditional login with bcrypt password hashing
