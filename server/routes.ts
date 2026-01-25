@@ -228,62 +228,6 @@ export async function registerRoutes(
     }
   });
 
-  // ========== AI IMAGE GENERATION ==========
-
-  // Generate images for a lead using AI
-  app.post("/api/leads/:id/generate-images", isAuthenticated, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { prompt } = req.body;
-
-      if (!prompt) {
-        return res.status(400).json({ message: "Prompt is required" });
-      }
-
-      const lead = await storage.getLead(id);
-      if (!lead) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
-
-      // Generate hero image
-      const heroPrompt = `Professional business photo for ${lead.businessName}: ${prompt}. High quality, commercial photography style, well-lit, modern and inviting atmosphere.`;
-      const heroBuffer = await generateImageBuffer(heroPrompt, "1024x1024");
-      const heroBase64 = heroBuffer.toString("base64");
-      const heroDataUrl = `data:image/png;base64,${heroBase64}`;
-
-      // Generate 3 product/service images
-      const productPrompts = [
-        `Product or service photo 1 for ${lead.businessName}: ${prompt}. Professional commercial photography, clean background.`,
-        `Product or service photo 2 for ${lead.businessName}: ${prompt}. Professional product shot, high quality.`,
-        `Product or service photo 3 for ${lead.businessName}: ${prompt}. Service or product detail shot, professional lighting.`,
-      ];
-
-      const productImages: string[] = [];
-      for (const prodPrompt of productPrompts) {
-        const buffer = await generateImageBuffer(prodPrompt, "1024x1024");
-        const base64 = buffer.toString("base64");
-        productImages.push(`data:image/png;base64,${base64}`);
-      }
-
-      // Update lead with generated images
-      const updatedLead = await storage.updateLead(id, {
-        imagePrompt: prompt,
-        heroImageUrl: heroDataUrl,
-        productImages: productImages,
-      });
-
-      res.json({
-        success: true,
-        heroImageUrl: heroDataUrl,
-        productImages: productImages,
-        lead: updatedLead,
-      });
-    } catch (error) {
-      console.error("Error generating images:", error);
-      res.status(500).json({ message: "Failed to generate images" });
-    }
-  });
-
   // ========== AI SITE GENERATION ==========
 
   // Generate site content for a lead using AI (admin only)
@@ -386,8 +330,36 @@ Retorne um JSON com:
       });
 
       const content = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const imagePromptText = content.imagePrompt || `Professional ${businessType} photography in Brazil`;
 
-      // Update lead with generated content
+      // Generate hero image automatically
+      let heroImageUrl: string | undefined;
+      let productImages: string[] | undefined;
+      
+      try {
+        const heroPrompt = `Professional business photo for ${lead.businessName}, a ${businessType} in Brazil: ${imagePromptText}. High quality, commercial photography style, well-lit, modern and inviting atmosphere.`;
+        const heroBuffer = await generateImageBuffer(heroPrompt, "1024x1024");
+        const heroBase64 = heroBuffer.toString("base64");
+        heroImageUrl = `data:image/png;base64,${heroBase64}`;
+
+        // Generate 3 product/service images
+        const productPrompts = [
+          `Product or service photo 1 for ${businessType}: ${imagePromptText}. Professional commercial photography, clean background.`,
+          `Product or service photo 2 for ${businessType}: ${imagePromptText}. Professional product shot, high quality.`,
+          `Product or service photo 3 for ${businessType}: ${imagePromptText}. Service or product detail shot, professional lighting.`,
+        ];
+
+        productImages = [];
+        for (const prodPrompt of productPrompts) {
+          const buffer = await generateImageBuffer(prodPrompt, "1024x1024");
+          const base64 = buffer.toString("base64");
+          productImages.push(`data:image/png;base64,${base64}`);
+        }
+      } catch (imageError) {
+        console.error("Error generating images (will use stock images):", imageError);
+      }
+
+      // Update lead with generated content and images
       const updatedLead = await storage.updateLead(id, {
         businessType,
         category: category as any,
@@ -396,7 +368,9 @@ Retorne um JSON com:
         siteDescription: content.description || "Qualidade e excelencia em cada servico.",
         siteServices: content.services || ["Servico 1", "Servico 2", "Servico 3"],
         siteServiceDescriptions: content.serviceDescriptions || ["Descricao 1", "Descricao 2", "Descricao 3"],
-        imagePrompt: content.imagePrompt || `Professional ${businessType} photography`,
+        imagePrompt: imagePromptText,
+        ...(heroImageUrl && { heroImageUrl }),
+        ...(productImages && { productImages }),
       });
 
       res.json({
@@ -404,6 +378,7 @@ Retorne um JSON com:
         businessType,
         category,
         content,
+        imagesGenerated: !!heroImageUrl,
         lead: updatedLead,
       });
     } catch (error) {
