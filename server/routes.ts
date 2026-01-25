@@ -145,10 +145,29 @@ export async function registerRoutes(
 
   // ========== LEADS ==========
   
-  // Get all leads
+  // Get all leads (filtered by seller if not admin)
   app.get("/api/leads", isAuthenticated, async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const user = req.user as any;
+      let leads = await storage.getLeads();
+      
+      // If user is not admin, filter to show only their assigned leads
+      if (!user.isAdmin) {
+        // Find the seller record for this user
+        const [seller] = await db
+          .select()
+          .from(sellers)
+          .where(eq(sellers.userId, user.id))
+          .limit(1);
+        
+        if (seller) {
+          leads = leads.filter(lead => lead.sellerId === seller.id);
+        } else {
+          // User is not a seller, show no leads
+          leads = [];
+        }
+      }
+      
       res.json(leads);
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -156,13 +175,28 @@ export async function registerRoutes(
     }
   });
 
-  // Get single lead
+  // Get single lead (sellers can only access their own leads)
   app.get("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
+      const user = req.user as any;
       const lead = await storage.getLead(req.params.id);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+      
+      // If user is not admin, verify they own this lead
+      if (!user.isAdmin) {
+        const [seller] = await db
+          .select()
+          .from(sellers)
+          .where(eq(sellers.userId, user.id))
+          .limit(1);
+        
+        if (!seller || lead.sellerId !== seller.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
       res.json(lead);
     } catch (error) {
       console.error("Error fetching lead:", error);
@@ -199,9 +233,29 @@ export async function registerRoutes(
     }
   });
 
-  // Update lead
+  // Update lead (sellers can only update their own leads)
   app.patch("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
+      const user = req.user as any;
+      
+      // Check ownership for non-admins
+      if (!user.isAdmin) {
+        const existingLead = await storage.getLead(req.params.id);
+        if (!existingLead) {
+          return res.status(404).json({ message: "Lead not found" });
+        }
+        
+        const [seller] = await db
+          .select()
+          .from(sellers)
+          .where(eq(sellers.userId, user.id))
+          .limit(1);
+        
+        if (!seller || existingLead.sellerId !== seller.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
       const data = updateLeadSchema.parse(req.body);
       const lead = await storage.updateLead(req.params.id, data);
       if (!lead) {
@@ -217,8 +271,8 @@ export async function registerRoutes(
     }
   });
 
-  // Delete lead
-  app.delete("/api/leads/:id", isAuthenticated, async (req, res) => {
+  // Delete lead (admin only)
+  app.delete("/api/leads/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       await storage.deleteLead(req.params.id);
       res.status(204).send();
