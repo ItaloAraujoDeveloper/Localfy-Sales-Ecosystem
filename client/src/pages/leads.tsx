@@ -46,6 +46,8 @@ import {
   ShieldAlert,
   Sparkles,
   ImagePlus,
+  Globe,
+  Wand2,
 } from "lucide-react";
 
 const STATUS_COLORS: Record<LeadStatus, string> = {
@@ -67,6 +69,9 @@ export default function LeadsPage() {
   const [generatingLead, setGeneratingLead] = useState<Lead | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
   const [isGeneratingDialogOpen, setIsGeneratingDialogOpen] = useState(false);
+  const [generatingSiteLead, setGeneratingSiteLead] = useState<Lead | null>(null);
+  const [sitePrompt, setSitePrompt] = useState("");
+  const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
@@ -120,6 +125,22 @@ export default function LeadsPage() {
     },
   });
 
+  const generateSiteMutation = useMutation({
+    mutationFn: async (data: { id: string; customPrompt?: string }) => {
+      return apiRequest("POST", `/api/leads/${data.id}/generate-site`, { customPrompt: data.customPrompt });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Site gerado com sucesso!" });
+      setIsSiteDialogOpen(false);
+      setGeneratingSiteLead(null);
+      setSitePrompt("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao gerar site", variant: "destructive" });
+    },
+  });
+
   const handleGenerateImages = (lead: Lead) => {
     setGeneratingLead(lead);
     setImagePrompt(lead.imagePrompt || "");
@@ -131,6 +152,20 @@ export default function LeadsPage() {
     generateImagesMutation.mutate({
       id: generatingLead.id,
       prompt: imagePrompt.trim(),
+    });
+  };
+
+  const handleGenerateSite = (lead: Lead) => {
+    setGeneratingSiteLead(lead);
+    setSitePrompt("");
+    setIsSiteDialogOpen(true);
+  };
+
+  const handleConfirmGenerateSite = () => {
+    if (!generatingSiteLead) return;
+    generateSiteMutation.mutate({
+      id: generatingSiteLead.id,
+      customPrompt: sitePrompt.trim() || undefined,
     });
   };
 
@@ -380,19 +415,36 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleGenerateImages(lead)}
-                          title={lead.heroImageUrl ? "Regenerar imagens" : "Gerar imagens com IA"}
-                          data-testid={`button-generate-images-${lead.id}`}
-                        >
-                          {lead.heroImageUrl ? (
-                            <ImagePlus className="h-4 w-4" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleGenerateSite(lead)}
+                            title={(lead as any).siteGenerated ? "Regenerar site" : "Gerar site com IA"}
+                            data-testid={`button-generate-site-${lead.id}`}
+                          >
+                            {(lead as any).siteGenerated ? (
+                              <Globe className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Wand2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                        {isAdmin && (lead as any).siteGenerated && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleGenerateImages(lead)}
+                            title={lead.heroImageUrl ? "Regenerar imagens" : "Gerar imagens com IA"}
+                            data-testid={`button-generate-images-${lead.id}`}
+                          >
+                            {lead.heroImageUrl ? (
+                              <ImagePlus className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                         {lead.previewSlug && (
                           <Button
                             size="icon"
@@ -633,6 +685,79 @@ export default function LeadsPage() {
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
                   Gerar Imagens
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Site Dialog */}
+      <Dialog open={isSiteDialogOpen} onOpenChange={(open) => {
+        setIsSiteDialogOpen(open);
+        if (!open) {
+          setGeneratingSiteLead(null);
+          setSitePrompt("");
+        }
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="dialog-title-generate-site">
+              <Wand2 className="h-5 w-5" />
+              Gerar Site com IA
+            </DialogTitle>
+          </DialogHeader>
+          {generatingSiteLead && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-muted" data-testid="display-site-lead-info">
+                <p className="font-medium" data-testid="text-site-business-name">{generatingSiteLead.businessName}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-site-city">{generatingSiteLead.city}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Instrucoes adicionais (opcional)</Label>
+                <Textarea
+                  placeholder="Ex: Foque em musculacao e treino funcional, horario de 6h as 22h, promocao para novos alunos..."
+                  value={sitePrompt}
+                  onChange={(e) => setSitePrompt(e.target.value)}
+                  rows={4}
+                  data-testid="textarea-site-prompt"
+                />
+                <p className="text-xs text-muted-foreground">
+                  A IA vai detectar automaticamente o tipo de negocio pelo nome e gerar conteudo especifico.
+                </p>
+              </div>
+              {(generatingSiteLead as any).siteGenerated && (
+                <div className="p-3 rounded-lg bg-muted border" data-testid="warning-existing-site">
+                  <p className="text-sm flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Este lead ja possui um site gerado. Continuar ira substituir o conteudo atual.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsSiteDialogOpen(false)}
+              data-testid="button-cancel-site"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleConfirmGenerateSite} 
+              disabled={generateSiteMutation.isPending}
+              data-testid="button-confirm-site"
+            >
+              {generateSiteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Gerando site...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Gerar Site
                 </>
               )}
             </Button>
