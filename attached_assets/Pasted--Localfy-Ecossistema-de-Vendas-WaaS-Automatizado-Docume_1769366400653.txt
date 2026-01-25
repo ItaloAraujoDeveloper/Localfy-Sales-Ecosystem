@@ -1,0 +1,127 @@
+📘 Localfy: Ecossistema de Vendas WaaS Automatizado
+Documentação de Produto & Regras de Negócio Versão: 2.0 (Incluindo Módulo Magic Builder)
+
+1. Visão Executiva (O "Pitch")
+O Localfy é uma plataforma "End-to-End" que resolve os dois maiores problemas de agências de sites (WaaS): a prospecção lenta e a intangibilidade do produto.
+
+Diferente de CRMs tradicionais, o Localfy não apenas gerencia leads; ele encontra empresas sem site, gera automaticamente um site de demonstração (preview) personalizado e entrega essa oportunidade na mão do vendedor via geolocalização.
+
+A Missão: Transformar a venda de sites de um serviço consultivo demorado em um produto de prateleira instantâneo.
+
+2. Fluxo Principal de Valor (The Golden Path)
+O sistema opera em um ciclo contínuo de 5 etapas, totalmente automatizado até o contato humano:
+
+Radar (Discovery): O Admin define uma zona (ex: "Bairros da Zona Sul") e o sistema varre APIs de mapas em busca de estabelecimentos.
+
+Filtro & Captura: O sistema identifica quem não possui website cadastrado.
+
+Magic Builder (Geração de Produto):
+
+O sistema analisa a categoria do negócio (ex: Padaria, Clínica, Oficina).
+
+Seleciona um Template Premium adequado àquela categoria.
+
+Injeta os dados reais (Nome, Endereço, Telefone) no design.
+
+Cria um Link de Preview Exclusivo (ex: app.localfy/ver/padaria-do-joao).
+
+Distribuição: O lead qualificado e com o site pronto é atribuído ao vendedor mais próximo ou disponível.
+
+Conversão (Ação): O vendedor envia o link via WhatsApp. O cliente clica, vê o site pronto com o nome dele e fecha a assinatura.
+
+3. Módulos Funcionais
+Módulo 1: Lead Radar (Inteligência de Dados)
+Responsável por popular o funil de vendas sem esforço manual.
+
+Funcionalidade de Busca: Permite buscar por "Termo" + "Localização".
+
+Regra de Importação Automática:
+
+Se o resultado da busca tiver website → Descartar (ou marcar como baixa prioridade).
+
+Se o resultado não tiver website → Importar Imediatamente.
+
+Enriquecimento de Dados: Capturar automaticamente nome, endereço completo, telefone, avaliação média (estrelas) e categoria comercial.
+
+Módulo 2: O "Magic Builder" (Gerador de Previews)
+O diferencial competitivo do projeto. Transforma dados frios em uma página visual de alta conversão.
+
+Motor de Templates Dinâmicos: O sistema deve possuir layouts pré-definidos para as grandes verticais de mercado:
+
+Gastronomia: Foco em fotos de comida, cardápio e botão de iFood/WhatsApp.
+
+Saúde/Beleza: Foco em agendamento, lista de serviços e perfil profissional.
+
+Serviços Gerais: Foco em "Pedir Orçamento", áreas de atuação e confiança.
+
+Varejo: Foco em vitrine de produtos e localização.
+
+Lógica de Seleção: O sistema deve ler a categoria do lead (ex: "Dentista") e renderizar automaticamente o template de "Saúde/Beleza".
+
+Personalização Instantânea: O site gerado deve exibir o nome da empresa no cabeçalho e rodapé, e o telefone nos botões de ação (CTA), sem nenhuma intervenção humana.
+
+Módulo 3: CRM Kanban (Gestão de Pipeline)
+Painel visual para o Administrador controlar a operação.
+
+Colunas do Funil:
+
+Novos (Importados): Leads vindos do Radar, já com site gerado.
+
+Distribuídos: Já estão na carteira de um vendedor.
+
+Em Negociação: Cliente visualizou o site e demonstrou interesse.
+
+Venda Fechada (Won): Cliente assinou o contrato WaaS.
+
+Perdido (Lost): Cliente recusou ou dados inválidos.
+
+Métricas em Tempo Real: Cálculo automático de MRR (Receita Mensal Recorrente) potencial baseada nas oportunidades abertas.
+
+Módulo 4: App do Parceiro (Força de Vendas)
+Interface simplificada (Mobile-First) focada na execução rápida na rua.
+
+Carteira Inteligente: O vendedor vê apenas os leads atribuídos a ele.
+
+Botão "Magic Link": Um botão de destaque que copia o script de vendas + o link do site gerado para enviar no WhatsApp.
+
+Status Simples: O vendedor só tem 3 ações possíveis:
+
+Marcar Visita/Contato: Move o card no CRM.
+
+Venda Realizada: Notifica o admin para contrato.
+
+Descartar: Remove da lista.
+
+Painel de Comissões: Visualização clara de quanto dinheiro ele já ganhou no mês.
+
+4. Regras de Negócio (Business Rules)
+Atribuição de Leads
+Leads podem ser atribuídos manualmente pelo Admin ou capturados pelo vendedor baseado na proximidade geográfica (Raios de atuação).
+
+Templates e Categorização
+Caso a categoria do Google não tenha um template específico mapeado, o sistema deve usar um Template Genérico Institucional de alta qualidade, focado em autoridade e contato, para garantir que nunca falhe a geração do preview.
+
+Gestão de Acesso
+Admin: Acesso total (Radar, CRM, Financeiro, Configuração de Vendedores).
+
+Vendedor: Acesso restrito (Apenas seus leads, sua carteira e seus ganhos). Não vê dados de outros vendedores.
+
+5. Estratégia de Monetização e Escala
+Modelo de Receita (WaaS)
+Setup Fee (Opcional): Valor de entrada para "ativar" o site.
+
+Assinatura Recorrente: O cliente paga um valor mensal para manter o site no ar, hospedagem e manutenções inclusas.
+
+Escalabilidade Técnica
+O sistema de geração de sites (Magic Builder) não deve criar arquivos físicos ou deploys reais para os previews. Ele deve funcionar sob demanda (Renderização Dinâmica), garantindo custo zero de infraestrutura para criar milhões de demonstrações.
+
+6. Glossário do Projeto
+Lead: Empresa local identificada sem presença digital.
+
+Preview: O site demonstrativo gerado automaticamente pelo Localfy.
+
+WaaS: Website as a Service (modelo de negócio de aluguel de sites).
+
+Radar: Ferramenta de busca e mineração de dados.
+
+Parceiro: Vendedor externo comissionado.
