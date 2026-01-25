@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lead, Seller } from "@shared/schema";
-import { CATEGORY_LABELS, STATUS_LABELS, type BusinessCategory, type LeadStatus } from "@shared/schema";
+import type { Lead, Seller, LeadActivity } from "@shared/schema";
+import { CATEGORY_LABELS, STATUS_LABELS, ACTIVITY_TYPE_LABELS, type BusinessCategory, type LeadStatus } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,14 @@ import {
   Sparkles,
   Globe,
   Wand2,
+  History,
+  PhoneCall,
+  FileText,
+  Target,
+  ExternalLink,
 } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_COLORS: Record<LeadStatus, string> = {
   new: "bg-blue-500",
@@ -69,6 +76,12 @@ export default function LeadsPage() {
   const [generatingSiteLead, setGeneratingSiteLead] = useState<Lead | null>(null);
   const [sitePrompt, setSitePrompt] = useState("");
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
+  
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ leadId: string; newStatus: LeadStatus } | null>(null);
+  const [statusNote, setStatusNote] = useState("");
+  const [historyLeadId, setHistoryLeadId] = useState<string | null>(null);
+  const [historyLeadName, setHistoryLeadName] = useState("");
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
@@ -210,11 +223,61 @@ export default function LeadsPage() {
     });
   };
 
+  const statusUpdateMutation = useMutation({
+    mutationFn: async ({ leadId, status, note }: { leadId: string; status: LeadStatus; note: string }) => {
+      return apiRequest("PATCH", `/api/leads/${leadId}/status`, { status, note });
+    },
+    onMutate: async ({ leadId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["/api/leads"]);
+      queryClient.setQueryData<Lead[]>(["/api/leads"], (old) =>
+        old?.map((lead) => lead.id === leadId ? { ...lead, status } : lead)
+      );
+      return { previousLeads };
+    },
+    onSuccess: () => {
+      toast({ title: "Status atualizado com sucesso" });
+      setStatusModalOpen(false);
+      setPendingStatusChange(null);
+      setStatusNote("");
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["/api/leads"], context.previousLeads);
+      }
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+    },
+  });
+
   const handleQuickStatusChange = (leadId: string, newStatus: LeadStatus) => {
-    updateMutation.mutate({
-      id: leadId,
-      updates: { status: newStatus },
+    const lead = leads?.find(l => l.id === leadId);
+    if (lead?.status === newStatus) return;
+    setPendingStatusChange({ leadId, newStatus });
+    setStatusModalOpen(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatusChange) return;
+    if (!statusNote.trim()) {
+      toast({ title: "Informe o motivo da alteracao", variant: "destructive" });
+      return;
+    }
+    statusUpdateMutation.mutate({
+      leadId: pendingStatusChange.leadId,
+      status: pendingStatusChange.newStatus,
+      note: statusNote,
     });
+  };
+
+  const openHistory = (leadId: string) => {
+    const lead = leads?.find(l => l.id === leadId);
+    if (lead) {
+      setHistoryLeadId(leadId);
+      setHistoryLeadName(lead.businessName);
+    }
   };
 
   const handleQuickSellerChange = (leadId: string, sellerId: string) => {
@@ -463,6 +526,14 @@ export default function LeadsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => openHistory(lead.id)}
+                          data-testid={`button-history-${lead.id}`}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => {
                             if (confirm("Tem certeza que deseja remover este lead?")) {
                               deleteMutation.mutate(lead.id);
@@ -687,6 +758,142 @@ export default function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Change Modal */}
+      <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Status</DialogTitle>
+            <DialogDescription>
+              {pendingStatusChange && (
+                <>Alterando para: {STATUS_LABELS[pendingStatusChange.newStatus]}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="statusNote">Motivo / Observacao *</Label>
+              <Textarea
+                id="statusNote"
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                placeholder="Descreva o que aconteceu ou o motivo da alteracao..."
+                className="min-h-[100px]"
+                data-testid="input-status-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setStatusModalOpen(false);
+              setPendingStatusChange(null);
+              setStatusNote("");
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmStatusChange}
+              disabled={statusUpdateMutation.isPending || !statusNote.trim()}
+              data-testid="button-confirm-status"
+            >
+              {statusUpdateMutation.isPending ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      {historyLeadId && (
+        <HistoryDialog
+          leadId={historyLeadId}
+          leadName={historyLeadName}
+          open={!!historyLeadId}
+          onOpenChange={(open) => !open && setHistoryLeadId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function HistoryDialog({ leadId, leadName, open, onOpenChange }: { 
+  leadId: string; 
+  leadName: string;
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: activities, isLoading } = useQuery<LeadActivity[]>({
+    queryKey: [`/api/leads/${leadId}/activities`],
+    enabled: open,
+  });
+
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "call": return <PhoneCall className="h-4 w-4 text-blue-500" />;
+      case "status_change": return <FileText className="h-4 w-4 text-purple-500" />;
+      case "note": return <FileText className="h-4 w-4 text-gray-500" />;
+      case "site_generated": return <ExternalLink className="h-4 w-4 text-green-500" />;
+      case "assignment": return <Target className="h-4 w-4 text-orange-500" />;
+      default: return <History className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Historico - {leadName}</DialogTitle>
+          <DialogDescription>
+            Todas as atividades registradas para este lead
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          ) : activities?.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Nenhuma atividade registrada ainda.
+            </p>
+          ) : (
+            activities?.map((activity) => (
+              <div key={activity.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="mt-0.5">{getActivityIcon(activity.activityType)}</div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {ACTIVITY_TYPE_LABELS[activity.activityType as keyof typeof ACTIVITY_TYPE_LABELS]}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(activity.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+                  {activity.previousStatus && activity.newStatus && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        {STATUS_LABELS[activity.previousStatus as keyof typeof STATUS_LABELS]}
+                      </Badge>
+                      <span className="text-xs">→</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {STATUS_LABELS[activity.newStatus as keyof typeof STATUS_LABELS]}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

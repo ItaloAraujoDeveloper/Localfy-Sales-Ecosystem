@@ -360,12 +360,7 @@ function HistoryDialog({ leadId, leadName, open, onOpenChange }: {
   onOpenChange: (open: boolean) => void;
 }) {
   const { data: activities, isLoading } = useQuery<LeadActivity[]>({
-    queryKey: ["/api/leads", leadId, "activities"],
-    queryFn: async () => {
-      const res = await fetch(`/api/leads/${leadId}/activities`);
-      if (!res.ok) throw new Error("Failed to fetch activities");
-      return res.json();
-    },
+    queryKey: [`/api/leads/${leadId}/activities`],
     enabled: open,
   });
 

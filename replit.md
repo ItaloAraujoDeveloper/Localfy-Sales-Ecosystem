@@ -128,3 +128,16 @@ Stock images are stored in `client/src/assets/images/` organized by category pre
 - Only the admin can create, update, and delete sellers
 - Regular users see only the Partner App (Minha Carteira)
 - Admin users see full admin menu (Dashboard, Lead Radar, CRM, Vendedores, Partner App)
+
+### CRM History & Activity Tracking (January 2026)
+- **lead_activities table**: Stores all activities for each lead (calls, status changes, notes, assignments)
+- **Status Change Notes**: When changing a lead's status, a modal requires the user to explain the reason
+- **Call Registration**: "Registrar Ligacao" button in Partner App allows sellers to log calls with optional notes
+- **History Dialog**: Both Partner App and Leads page have a history button to view complete activity timeline
+- **Activity Types**: status_change, call, note, site_generated, assignment
+
+### API Endpoints for CRM History
+- `GET /api/leads/:id/activities` - Get all activities for a lead
+- `POST /api/leads/:id/activities` - Create a new activity
+- `PATCH /api/leads/:id/status` - Update lead status with required note
+- `POST /api/leads/:id/call` - Register a call for a lead
