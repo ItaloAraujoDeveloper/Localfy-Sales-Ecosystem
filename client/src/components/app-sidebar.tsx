@@ -54,6 +54,11 @@ const adminMenuItems = [
 
 const sellerMenuItems = [
   {
+    title: "CRM Kanban",
+    url: "/crm",
+    icon: Kanban,
+  },
+  {
     title: "Minha Carteira",
     url: "/partner",
     icon: LayoutDashboard,

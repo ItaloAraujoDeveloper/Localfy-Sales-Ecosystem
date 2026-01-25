@@ -45,6 +45,7 @@ interface SellerFormData {
   email: string;
   phone: string;
   commissionRate: string;
+  password: string;
 }
 
 function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
@@ -57,14 +58,18 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
       email: "",
       phone: "",
       commissionRate: "10.00",
+      password: "",
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: SellerFormData) => {
       return apiRequest("POST", "/api/sellers", {
-        ...data,
-        userId: "temp-" + Date.now(),
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        commissionRate: data.commissionRate,
+        password: data.password,
         isActive: true,
       });
     },
@@ -136,6 +141,20 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
                   <FormLabel>Telefone</FormLabel>
                   <FormControl>
                     <Input placeholder="(11) 99999-9999" {...field} data-testid="input-seller-phone" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              rules={{ required: "Senha e obrigatoria", minLength: { value: 6, message: "Senha deve ter no minimo 6 caracteres" } }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Senha de Acesso</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Minimo 6 caracteres" {...field} data-testid="input-seller-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

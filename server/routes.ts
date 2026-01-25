@@ -2,9 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin } from "./auth";
-import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory } from "@shared/schema";
+import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, users, sellers } from "@shared/schema";
 import { z } from "zod";
 import { generateImageBuffer } from "./replit_integrations/image/client";
+import bcrypt from "bcryptjs";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // Google Places API configuration
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
@@ -308,18 +311,72 @@ export async function registerRoutes(
     }
   });
 
-  // Create seller (admin only)
+  // Create seller with user account (admin only)
+  const createSellerSchema = z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().optional(),
+    commissionRate: z.string().optional(),
+    password: z.string().min(6),
+    isActive: z.boolean().optional(),
+  });
+
   app.post("/api/sellers", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const data = insertSellerSchema.parse(req.body);
-      const seller = await storage.createSeller(data);
-      res.status(201).json(seller);
+      const data = createSellerSchema.parse(req.body);
+
+      // Check if email is already in use
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+
+      if (existingUser.length > 0) {
+        return res.status(400).json({ message: "Email ja cadastrado" });
+      }
+
+      // Hash password and create user account
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      const nameParts = data.name.split(" ");
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      // Create user and seller in a transaction
+      const result = await db.transaction(async (tx) => {
+        const [newUser] = await tx
+          .insert(users)
+          .values({
+            email: data.email,
+            passwordHash,
+            firstName,
+            lastName,
+            isAdmin: false,
+          })
+          .returning();
+
+        const [newSeller] = await tx
+          .insert(sellers)
+          .values({
+            userId: newUser.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            commissionRate: data.commissionRate || "10.00",
+            isActive: data.isActive ?? true,
+          })
+          .returning();
+
+        return newSeller;
+      });
+
+      res.status(201).json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+        return res.status(400).json({ message: "Dados invalidos", errors: error.errors });
       }
       console.error("Error creating seller:", error);
-      res.status(500).json({ message: "Failed to create seller" });
+      res.status(500).json({ message: "Falha ao criar vendedor" });
     }
   });
 
