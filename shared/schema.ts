@@ -39,6 +39,7 @@ export const leads = pgTable("leads", {
   monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }).default("99.00"),
   notes: text("notes"),
   previewSlug: text("preview_slug"),
+  dueDate: timestamp("due_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

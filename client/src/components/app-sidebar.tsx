@@ -7,6 +7,7 @@ import {
   Sparkles,
   LogOut,
   Settings,
+  TableProperties,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,11 @@ const adminMenuItems = [
     title: "CRM Kanban",
     url: "/crm",
     icon: Kanban,
+  },
+  {
+    title: "Controle de Leads",
+    url: "/leads",
+    icon: TableProperties,
   },
   {
     title: "Vendedores",

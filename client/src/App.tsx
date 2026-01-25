@@ -17,6 +17,7 @@ import CRMPage from "@/pages/crm";
 import RadarPage from "@/pages/radar";
 import PartnerPage from "@/pages/partner";
 import SellersPage from "@/pages/sellers";
+import LeadsPage from "@/pages/leads";
 import PreviewPage from "@/pages/preview";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -93,6 +94,7 @@ function Router() {
         <Route path="/dashboard" component={DashboardPage} />
         <Route path="/crm" component={CRMPage} />
         <Route path="/radar" component={RadarPage} />
+        <Route path="/leads" component={LeadsPage} />
         <Route path="/partner" component={PartnerPage} />
         <Route path="/sellers" component={SellersPage} />
         <Route component={NotFound} />
