@@ -40,6 +40,7 @@ interface DiscoveredBusiness {
   rating: number;
   reviewCount: number;
   hasWebsite: boolean;
+  alreadyImported?: boolean;
 }
 
 export default function RadarPage() {
@@ -75,12 +76,23 @@ export default function RadarPage() {
       
       const results: DiscoveredBusiness[] = await response.json();
       
-      setDiscoveredBusinesses(results);
+      // Check which businesses are already imported
+      const existingNames = new Set(existingLeads?.map(l => l.businessName.toLowerCase()) || []);
+      const existingPhones = new Set(existingLeads?.map(l => l.phone?.replace(/\D/g, "")) || []);
       
-      const withoutSite = results.filter(b => !b.hasWebsite).length;
+      const resultsWithImportStatus = results.map(b => ({
+        ...b,
+        alreadyImported: existingNames.has(b.name.toLowerCase()) || 
+                         (b.phone && existingPhones.has(b.phone.replace(/\D/g, "")))
+      }));
+      
+      setDiscoveredBusinesses(resultsWithImportStatus);
+      
+      const withoutSite = resultsWithImportStatus.filter(b => !b.hasWebsite && !b.alreadyImported).length;
+      const alreadyImported = resultsWithImportStatus.filter(b => b.alreadyImported).length;
       toast({ 
         title: `${results.length} negocios encontrados`,
-        description: `${withoutSite} sem website detectados`,
+        description: `${withoutSite} sem website, ${alreadyImported} ja importados`,
       });
     } catch (error) {
       console.error("Search error:", error);
@@ -143,7 +155,7 @@ export default function RadarPage() {
 
   const selectAllWithoutWebsite = () => {
     const ids = discoveredBusinesses
-      .filter(b => !b.hasWebsite)
+      .filter(b => !b.hasWebsite && !b.alreadyImported)
       .map(b => b.id);
     setSelectedIds(new Set(ids));
   };
@@ -157,7 +169,8 @@ export default function RadarPage() {
     importMutation.mutate(toImport);
   };
 
-  const businessesWithoutSite = discoveredBusinesses.filter(b => !b.hasWebsite);
+  const businessesWithoutSite = discoveredBusinesses.filter(b => !b.hasWebsite && !b.alreadyImported);
+  const alreadyImportedCount = discoveredBusinesses.filter(b => b.alreadyImported).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -225,7 +238,7 @@ export default function RadarPage() {
             <div>
               <CardTitle>Resultados da Busca</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {businessesWithoutSite.length} negocios sem website detectados
+                {businessesWithoutSite.length} sem website disponiveis{alreadyImportedCount > 0 ? `, ${alreadyImportedCount} ja importados` : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -261,12 +274,12 @@ export default function RadarPage() {
                     selectedIds.has(business.id) 
                       ? "border-primary bg-primary/5" 
                       : "hover-elevate"
-                  } ${business.hasWebsite ? "opacity-60" : ""}`}
+                  } ${business.hasWebsite || business.alreadyImported ? "opacity-60" : ""}`}
                 >
                   <Checkbox
                     checked={selectedIds.has(business.id)}
                     onCheckedChange={() => toggleSelect(business.id)}
-                    disabled={business.hasWebsite}
+                    disabled={business.hasWebsite || business.alreadyImported}
                     data-testid={`checkbox-business-${business.id}`}
                   />
                   
@@ -302,7 +315,12 @@ export default function RadarPage() {
                       <span className="text-muted-foreground">({business.reviewCount})</span>
                     </div>
                     
-                    {business.hasWebsite ? (
+                    {business.alreadyImported ? (
+                      <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Ja Importado
+                      </Badge>
+                    ) : business.hasWebsite ? (
                       <Badge variant="secondary" className="gap-1">
                         <CheckCircle2 className="h-3 w-3" />
                         Com Site
