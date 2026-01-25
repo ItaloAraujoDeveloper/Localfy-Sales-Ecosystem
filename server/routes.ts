@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
+import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin } from "./auth";
 import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -9,8 +9,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication
-  await setupAuth(app);
+  // Setup session and auth routes
+  setupSession(app);
   registerAuthRoutes(app);
 
   // ========== LEADS ==========

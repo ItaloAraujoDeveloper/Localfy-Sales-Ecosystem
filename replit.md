@@ -104,8 +104,14 @@ Preferred communication style: Simple, everyday language.
 - Retail: Green/teal theme with product catalog
 - Generic: Neutral theme for institutional sites
 
+### Authentication System
+- **Email/Password Login**: Traditional login with bcrypt password hashing
+- Login page at `/login` with tabs for login and registration
+- Sessions stored in PostgreSQL with 7-day expiry
+
 ### Admin Configuration
 - Admin email: `fl.italo.araujo@gmail.com`
+- First user to register with this email automatically becomes admin
 - Only the admin can create, update, and delete sellers
 - Regular users see only the Partner App (Minha Carteira)
 - Admin users see full admin menu (Dashboard, Lead Radar, CRM, Vendedores, Partner App)

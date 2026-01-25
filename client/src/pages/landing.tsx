@@ -23,14 +23,14 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <a 
-              href="/api/login" 
+              href="/login" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               data-testid="link-login"
             >
               Entrar
             </a>
             <Button asChild data-testid="button-get-started">
-              <a href="/api/login">
+              <a href="/login">
                 Comecar Agora
                 <ArrowRight className="ml-2 h-4 w-4" />
               </a>
@@ -60,7 +60,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button size="lg" asChild className="min-w-[200px]" data-testid="button-hero-cta">
-                <a href="/api/login">
+                <a href="/login">
                   Comecar Gratuitamente
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
@@ -224,7 +224,7 @@ export default function LandingPage() {
             asChild
             data-testid="button-cta-bottom"
           >
-            <a href="/api/login">
+            <a href="/login">
               Criar conta gratuita
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>

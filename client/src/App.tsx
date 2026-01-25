@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/dashboard";
 import CRMPage from "@/pages/crm";
 import RadarPage from "@/pages/radar";
@@ -60,6 +61,18 @@ function Router() {
   // Preview pages are public
   if (location.startsWith("/ver/")) {
     return <PreviewPage />;
+  }
+
+  // Login page
+  if (location === "/login") {
+    if (user) {
+      return (
+        <AuthenticatedLayout>
+          <DashboardPage />
+        </AuthenticatedLayout>
+      );
+    }
+    return <LoginPage />;
   }
 
   // Show loading while checking auth
