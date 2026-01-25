@@ -332,29 +332,27 @@ Retorne um JSON com:
       const content = JSON.parse(response.choices[0]?.message?.content || "{}");
       const imagePromptText = content.imagePrompt || `Professional ${businessType} photography in Brazil`;
 
-      // Generate hero image automatically
+      // Generate all images in parallel for speed
       let heroImageUrl: string | undefined;
       let productImages: string[] | undefined;
       
       try {
         const heroPrompt = `Professional business photo for ${lead.businessName}, a ${businessType} in Brazil: ${imagePromptText}. High quality, commercial photography style, well-lit, modern and inviting atmosphere.`;
-        const heroBuffer = await generateImageBuffer(heroPrompt, "1024x1024");
-        const heroBase64 = heroBuffer.toString("base64");
-        heroImageUrl = `data:image/png;base64,${heroBase64}`;
-
-        // Generate 3 product/service images
+        
         const productPrompts = [
           `Product or service photo 1 for ${businessType}: ${imagePromptText}. Professional commercial photography, clean background.`,
           `Product or service photo 2 for ${businessType}: ${imagePromptText}. Professional product shot, high quality.`,
           `Product or service photo 3 for ${businessType}: ${imagePromptText}. Service or product detail shot, professional lighting.`,
         ];
 
-        productImages = [];
-        for (const prodPrompt of productPrompts) {
-          const buffer = await generateImageBuffer(prodPrompt, "1024x1024");
-          const base64 = buffer.toString("base64");
-          productImages.push(`data:image/png;base64,${base64}`);
-        }
+        // Generate all images in parallel
+        const [heroBuffer, ...productBuffers] = await Promise.all([
+          generateImageBuffer(heroPrompt, "1024x1024"),
+          ...productPrompts.map(prompt => generateImageBuffer(prompt, "1024x1024"))
+        ]);
+
+        heroImageUrl = `data:image/png;base64,${heroBuffer.toString("base64")}`;
+        productImages = productBuffers.map(buffer => `data:image/png;base64,${buffer.toString("base64")}`);
       } catch (imageError) {
         console.error("Error generating images (will use stock images):", imageError);
       }
