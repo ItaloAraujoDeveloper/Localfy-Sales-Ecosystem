@@ -13,26 +13,44 @@ import {
   MessageCircle,
   Calendar,
   Clock,
-  AlertCircle
+  AlertCircle,
+  PhoneCall,
+  History,
+  FileText
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lead, Seller, Commission } from "@shared/schema";
-import { STATUS_LABELS, CATEGORY_LABELS } from "@shared/schema";
+import type { Lead, Seller, Commission, LeadActivity, LeadStatus } from "@shared/schema";
+import { STATUS_LABELS, CATEGORY_LABELS, ACTIVITY_TYPE_LABELS } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
-function LeadActionCard({ lead }: { lead: Lead }) {
+function LeadActionCard({ lead, onOpenHistory }: { lead: Lead; onOpenHistory?: (leadId: string) => void }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null);
+  const [statusNote, setStatusNote] = useState("");
+  const [callModalOpen, setCallModalOpen] = useState(false);
+  const [callNote, setCallNote] = useState("");
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (status: Lead["status"]) => {
-      return apiRequest("PATCH", `/api/leads/${lead.id}`, { status });
+    mutationFn: async ({ status, note }: { status: LeadStatus; note: string }) => {
+      return apiRequest("PATCH", `/api/leads/${lead.id}/status`, { status, note });
     },
-    onMutate: async (status) => {
+    onMutate: async ({ status }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/leads"] });
       const previousLeads = queryClient.getQueryData<Lead[]>(["/api/leads"]);
       queryClient.setQueryData<Lead[]>(["/api/leads"], (old) =>
@@ -42,8 +60,11 @@ function LeadActionCard({ lead }: { lead: Lead }) {
     },
     onSuccess: () => {
       toast({ title: "Status atualizado" });
+      setStatusModalOpen(false);
+      setStatusNote("");
+      setPendingStatus(null);
     },
-    onError: (_err, _status, context) => {
+    onError: (_err, _vars, context) => {
       if (context?.previousLeads) {
         queryClient.setQueryData(["/api/leads"], context.previousLeads);
       }
@@ -51,8 +72,44 @@ function LeadActionCard({ lead }: { lead: Lead }) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads", lead.id, "activities"] });
     },
   });
+
+  const registerCallMutation = useMutation({
+    mutationFn: async (note: string) => {
+      return apiRequest("POST", `/api/leads/${lead.id}/call`, { note });
+    },
+    onSuccess: () => {
+      toast({ title: "Ligacao registrada" });
+      setCallModalOpen(false);
+      setCallNote("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao registrar ligacao", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads", lead.id, "activities"] });
+    },
+  });
+
+  const handleStatusChange = (newStatus: LeadStatus) => {
+    setPendingStatus(newStatus);
+    setStatusModalOpen(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatus) return;
+    if (!statusNote.trim()) {
+      toast({ title: "Informe o motivo da alteracao", variant: "destructive" });
+      return;
+    }
+    updateStatusMutation.mutate({ status: pendingStatus, note: statusNote });
+  };
+
+  const confirmCall = () => {
+    registerCallMutation.mutate(callNote || "Ligacao realizada");
+  };
 
   const previewUrl = `${window.location.origin}/ver/${lead.previewSlug || lead.id}`;
   
@@ -162,6 +219,17 @@ ${previewUrl}
           </Button>
         </div>
 
+        {/* Call Registration Button */}
+        <Button 
+          variant="secondary"
+          className="w-full mt-2"
+          onClick={() => setCallModalOpen(true)}
+          data-testid={`button-register-call-${lead.id}`}
+        >
+          <PhoneCall className="mr-2 h-4 w-4" />
+          Registrar Ligacao
+        </Button>
+
         {/* Quick Actions */}
         <div className="flex gap-2 mt-4 pt-4 border-t">
           {lead.status === "distributed" && (
@@ -169,9 +237,10 @@ ${previewUrl}
               size="sm" 
               variant="secondary"
               className="flex-1"
-              onClick={() => updateStatusMutation.mutate("negotiating")}
+              onClick={() => handleStatusChange("negotiating")}
+              data-testid={`button-status-negotiating-${lead.id}`}
             >
-              Marcar Em Negociação
+              Marcar Em Negociacao
             </Button>
           )}
           {lead.status === "negotiating" && (
@@ -179,27 +248,203 @@ ${previewUrl}
               <Button 
                 size="sm"
                 className="flex-1"
-                onClick={() => updateStatusMutation.mutate("won")}
+                onClick={() => handleStatusChange("won")}
+                data-testid={`button-status-won-${lead.id}`}
               >
                 Venda Realizada
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => updateStatusMutation.mutate("lost")}
+                onClick={() => handleStatusChange("lost")}
+                data-testid={`button-status-lost-${lead.id}`}
               >
                 Perdido
               </Button>
             </>
           )}
+          {onOpenHistory && (
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={() => onOpenHistory(lead.id)}
+              data-testid={`button-history-${lead.id}`}
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
+
+      {/* Status Change Modal */}
+      <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Status</DialogTitle>
+            <DialogDescription>
+              Informe o motivo da alteracao para {pendingStatus ? STATUS_LABELS[pendingStatus] : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="statusNote">Motivo / Observacao *</Label>
+              <Textarea
+                id="statusNote"
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                placeholder="Descreva o que aconteceu..."
+                className="min-h-[100px]"
+                data-testid="input-status-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmStatusChange}
+              disabled={updateStatusMutation.isPending || !statusNote.trim()}
+              data-testid="button-confirm-status"
+            >
+              {updateStatusMutation.isPending ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Call Registration Modal */}
+      <Dialog open={callModalOpen} onOpenChange={setCallModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Ligacao</DialogTitle>
+            <DialogDescription>
+              Registre a ligacao para {lead.businessName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="callNote">Observacao (opcional)</Label>
+              <Textarea
+                id="callNote"
+                value={callNote}
+                onChange={(e) => setCallNote(e.target.value)}
+                placeholder="Como foi a ligacao? O cliente demonstrou interesse?"
+                className="min-h-[100px]"
+                data-testid="input-call-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmCall}
+              disabled={registerCallMutation.isPending}
+              data-testid="button-confirm-call"
+            >
+              {registerCallMutation.isPending ? "Registrando..." : "Registrar Ligacao"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
+  );
+}
+
+function HistoryDialog({ leadId, leadName, open, onOpenChange }: { 
+  leadId: string; 
+  leadName: string;
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: activities, isLoading } = useQuery<LeadActivity[]>({
+    queryKey: ["/api/leads", leadId, "activities"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leads/${leadId}/activities`);
+      if (!res.ok) throw new Error("Failed to fetch activities");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "call": return <PhoneCall className="h-4 w-4 text-blue-500" />;
+      case "status_change": return <FileText className="h-4 w-4 text-purple-500" />;
+      case "note": return <FileText className="h-4 w-4 text-gray-500" />;
+      case "site_generated": return <ExternalLink className="h-4 w-4 text-green-500" />;
+      case "assignment": return <Target className="h-4 w-4 text-orange-500" />;
+      default: return <History className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Historico - {leadName}</DialogTitle>
+          <DialogDescription>
+            Todas as atividades registradas para este lead
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          ) : activities?.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Nenhuma atividade registrada ainda.
+            </p>
+          ) : (
+            activities?.map((activity) => (
+              <div key={activity.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="mt-0.5">{getActivityIcon(activity.activityType)}</div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {ACTIVITY_TYPE_LABELS[activity.activityType as keyof typeof ACTIVITY_TYPE_LABELS]}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(activity.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+                  {activity.previousStatus && activity.newStatus && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        {STATUS_LABELS[activity.previousStatus as keyof typeof STATUS_LABELS]}
+                      </Badge>
+                      <span className="text-xs">→</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {STATUS_LABELS[activity.newStatus as keyof typeof STATUS_LABELS]}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export default function PartnerPage() {
   const { user } = useAuth();
+  const [historyLeadId, setHistoryLeadId] = useState<string | null>(null);
+  const [historyLeadName, setHistoryLeadName] = useState("");
 
   const { data: leads, isLoading: leadsLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
@@ -212,6 +457,14 @@ export default function PartnerPage() {
   const { data: commissions } = useQuery<Commission[]>({
     queryKey: ["/api/commissions"],
   });
+
+  const openHistory = (leadId: string) => {
+    const lead = leads?.find(l => l.id === leadId);
+    if (lead) {
+      setHistoryLeadId(leadId);
+      setHistoryLeadName(lead.businessName);
+    }
+  };
 
   // Get today's date for comparison (start of day)
   const today = new Date();
@@ -355,7 +608,7 @@ export default function PartnerPage() {
               </p>
               <div className="grid gap-3 md:grid-cols-2">
                 {overdueLeads.map(lead => (
-                  <LeadActionCard key={lead.id} lead={lead} />
+                  <LeadActionCard key={lead.id} lead={lead} onOpenHistory={openHistory} />
                 ))}
               </div>
             </div>
@@ -364,7 +617,7 @@ export default function PartnerPage() {
           {todayCalls.length > 0 && (
             <div className="grid gap-3 md:grid-cols-2">
               {todayCalls.map(lead => (
-                <LeadActionCard key={lead.id} lead={lead} />
+                <LeadActionCard key={lead.id} lead={lead} onOpenHistory={openHistory} />
               ))}
             </div>
           )}
@@ -383,7 +636,7 @@ export default function PartnerPage() {
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
             {wonLeads.map(lead => (
-              <LeadActionCard key={lead.id} lead={lead} />
+              <LeadActionCard key={lead.id} lead={lead} onOpenHistory={openHistory} />
             ))}
           </div>
         </div>
@@ -409,11 +662,21 @@ export default function PartnerPage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {activeLeads.map(lead => (
-              <LeadActionCard key={lead.id} lead={lead} />
+              <LeadActionCard key={lead.id} lead={lead} onOpenHistory={openHistory} />
             ))}
           </div>
         )}
       </div>
+
+      {/* History Dialog */}
+      {historyLeadId && (
+        <HistoryDialog
+          leadId={historyLeadId}
+          leadName={historyLeadName}
+          open={!!historyLeadId}
+          onOpenChange={(open) => !open && setHistoryLeadId(null)}
+        />
+      )}
     </div>
   );
 }
