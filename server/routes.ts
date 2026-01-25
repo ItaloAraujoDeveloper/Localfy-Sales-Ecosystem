@@ -282,6 +282,183 @@ export async function registerRoutes(
     }
   });
 
+  // ========== LEAD ACTIVITIES (CRM HISTORY) ==========
+
+  // Get activities for a lead
+  app.get("/api/leads/:id/activities", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const lead = await storage.getLead(req.params.id);
+      
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      // If user is not admin, verify they own this lead
+      if (!user.isAdmin) {
+        const [seller] = await db
+          .select()
+          .from(sellers)
+          .where(eq(sellers.userId, user.id))
+          .limit(1);
+        
+        if (!seller || lead.sellerId !== seller.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      const activities = await storage.getLeadActivities(req.params.id);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching lead activities:", error);
+      res.status(500).json({ message: "Failed to fetch lead activities" });
+    }
+  });
+
+  // Create activity for a lead (register call, note, status change)
+  app.post("/api/leads/:id/activities", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { activityType, description, previousStatus, newStatus } = req.body;
+      
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      // Get seller ID for this user
+      let sellerId: string | undefined;
+      const [seller] = await db
+        .select()
+        .from(sellers)
+        .where(eq(sellers.userId, user.id))
+        .limit(1);
+      
+      if (seller) {
+        sellerId = seller.id;
+      }
+      
+      // If user is not admin, verify they own this lead
+      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const activity = await storage.createLeadActivity({
+        leadId: req.params.id,
+        sellerId,
+        activityType,
+        description,
+        previousStatus,
+        newStatus,
+      });
+      
+      res.status(201).json(activity);
+    } catch (error) {
+      console.error("Error creating lead activity:", error);
+      res.status(500).json({ message: "Failed to create lead activity" });
+    }
+  });
+
+  // Update lead status with required note
+  app.patch("/api/leads/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { status, note } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      if (!note || note.trim().length === 0) {
+        return res.status(400).json({ message: "Note explaining the status change is required" });
+      }
+      
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      // Get seller ID for this user
+      let sellerId: string | undefined;
+      const [seller] = await db
+        .select()
+        .from(sellers)
+        .where(eq(sellers.userId, user.id))
+        .limit(1);
+      
+      if (seller) {
+        sellerId = seller.id;
+      }
+      
+      // If user is not admin, verify they own this lead
+      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const previousStatus = lead.status;
+      
+      // Update lead status
+      const updatedLead = await storage.updateLead(req.params.id, { status });
+      
+      // Create activity record
+      await storage.createLeadActivity({
+        leadId: req.params.id,
+        sellerId,
+        activityType: "status_change",
+        description: note,
+        previousStatus,
+        newStatus: status,
+      });
+      
+      res.json(updatedLead);
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      res.status(500).json({ message: "Failed to update lead status" });
+    }
+  });
+
+  // Register a call for a lead
+  app.post("/api/leads/:id/call", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { note } = req.body;
+      
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      // Get seller ID for this user
+      let sellerId: string | undefined;
+      const [seller] = await db
+        .select()
+        .from(sellers)
+        .where(eq(sellers.userId, user.id))
+        .limit(1);
+      
+      if (seller) {
+        sellerId = seller.id;
+      }
+      
+      // If user is not admin, verify they own this lead
+      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const activity = await storage.createLeadActivity({
+        leadId: req.params.id,
+        sellerId,
+        activityType: "call",
+        description: note || "Ligacao realizada",
+      });
+      
+      res.status(201).json(activity);
+    } catch (error) {
+      console.error("Error registering call:", error);
+      res.status(500).json({ message: "Failed to register call" });
+    }
+  });
+
   // ========== AI SITE GENERATION ==========
 
   // Generate site content for a lead using AI (admin only)
