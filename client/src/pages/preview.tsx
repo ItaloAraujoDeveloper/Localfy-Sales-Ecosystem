@@ -128,8 +128,23 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
   const category = (lead.category as BusinessCategory) || "generic";
   const colors = CATEGORY_COLORS[category];
   const defaultImages = CATEGORY_IMAGES[category];
-  const products = CATEGORY_PRODUCTS[category];
+  const defaultProducts = CATEGORY_PRODUCTS[category];
   const Icon = CATEGORY_ICONS[category];
+
+  // Get generated content or fallback to defaults
+  const hasGeneratedContent = (lead as any).siteGenerated === true;
+  const siteServices = (lead as any).siteServices as string[] | null | undefined;
+  const siteServiceDescriptions = (lead as any).siteServiceDescriptions as string[] | null | undefined;
+  const siteHeadline = (lead as any).siteHeadline as string | null | undefined;
+  const siteDescription = (lead as any).siteDescription as string | null | undefined;
+  
+  // Use generated services if available, fallback to category defaults
+  const services = hasGeneratedContent && siteServices && siteServices.length > 0
+    ? siteServices.map((name: string, i: number) => ({
+        name,
+        desc: siteServiceDescriptions?.[i] || "Servico de qualidade"
+      }))
+    : defaultProducts;
 
   // Use AI-generated images if available, fallback to stock images
   const heroImage = lead.heroImageUrl || defaultImages.hero;
@@ -142,6 +157,10 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
 
   // Extract city from address
   const city = lead.city || lead.address?.split(",").pop()?.trim() || "sua cidade";
+  
+  // Generated headline and description
+  const headline = hasGeneratedContent && siteHeadline ? siteHeadline : null;
+  const description = hasGeneratedContent && siteDescription ? siteDescription : null;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg, color: "#ffffff" }}>
@@ -182,17 +201,27 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
         <div className="container mx-auto px-4 py-12">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                O Melhor{" "}
-                <span style={{ color: colors.primary }}>
-                  {CATEGORY_LABELS[category]}
-                </span>
-                <br />de {city}
-              </h2>
+              {headline ? (
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                  <span style={{ color: colors.primary }}>{headline}</span>
+                </h2>
+              ) : (
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                  O Melhor{" "}
+                  <span style={{ color: colors.primary }}>
+                    {CATEGORY_LABELS[category]}
+                  </span>
+                  <br />de {city}
+                </h2>
+              )}
               <p className="text-lg text-white/70 max-w-lg">
-                Qualidade incomparavel no coracao da cidade. 
-                {lead.phone && " Entre em contato pelo WhatsApp e faca seu pedido."}
-                {!lead.phone && " Venha nos visitar!"}
+                {description || (
+                  <>
+                    Qualidade incomparavel no coracao da cidade. 
+                    {lead.phone && " Entre em contato pelo WhatsApp e faca seu pedido."}
+                    {!lead.phone && " Venha nos visitar!"}
+                  </>
+                )}
               </p>
               {lead.phone && (
                 <Button 
@@ -330,7 +359,7 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {products.map((product, i) => (
+            {services.map((service: { name: string; desc: string }, i: number) => (
               <div 
                 key={i} 
                 className="group rounded-2xl overflow-hidden border-2 transition-all duration-300"
@@ -339,13 +368,13 @@ function PreviewTemplate({ lead }: { lead: Lead }) {
                 <div className="aspect-square overflow-hidden">
                   <img
                     src={productImages[i] || defaultImages.products[i]}
-                    alt={product.name}
+                    alt={service.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
                 <div className="p-6 bg-white/5">
-                  <h3 className="font-bold text-lg mb-2">{product.name}</h3>
-                  <p className="text-sm text-white/60 mb-4">{product.desc}</p>
+                  <h3 className="font-bold text-lg mb-2">{service.name}</h3>
+                  <p className="text-sm text-white/60 mb-4">{service.desc}</p>
                   <Button 
                     asChild 
                     className="w-full text-white border-0"
