@@ -82,14 +82,29 @@ export default function LeadsPage() {
     mutationFn: async (data: { id: string; updates: Partial<Lead> }) => {
       return apiRequest("PATCH", `/api/leads/${data.id}`, data.updates);
     },
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["/api/leads"]);
+      queryClient.setQueryData<Lead[]>(["/api/leads"], (old) =>
+        old?.map((lead) =>
+          lead.id === data.id ? { ...lead, ...data.updates } : lead
+        )
+      );
+      return { previousLeads };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       toast({ title: "Lead atualizado com sucesso" });
       setIsEditDialogOpen(false);
       setEditingLead(null);
     },
-    onError: () => {
+    onError: (_err, _data, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["/api/leads"], context.previousLeads);
+      }
       toast({ title: "Erro ao atualizar lead", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
   });
 
@@ -97,12 +112,25 @@ export default function LeadsPage() {
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/leads/${id}`);
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["/api/leads"]);
+      queryClient.setQueryData<Lead[]>(["/api/leads"], (old) =>
+        old?.filter((lead) => lead.id !== id)
+      );
+      return { previousLeads };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       toast({ title: "Lead removido com sucesso" });
     },
-    onError: () => {
+    onError: (_err, _id, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["/api/leads"], context.previousLeads);
+      }
       toast({ title: "Erro ao remover lead", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
   });
 
@@ -341,7 +369,7 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={lead.status}
+                        value={lead.status || "new"}
                         onValueChange={(value) => handleQuickStatusChange(lead.id, value as LeadStatus)}
                       >
                         <SelectTrigger className="w-[140px]" data-testid={`select-status-${lead.id}`}>
@@ -505,7 +533,7 @@ export default function LeadsPage() {
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select
-                    value={editingLead.status}
+                    value={editingLead.status || "new"}
                     onValueChange={(value) => setEditingLead({ ...editingLead, status: value as LeadStatus })}
                   >
                     <SelectTrigger>

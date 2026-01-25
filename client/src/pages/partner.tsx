@@ -29,12 +29,28 @@ function LeadActionCard({ lead }: { lead: Lead }) {
   const [copied, setCopied] = useState(false);
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (status: string) => {
+    mutationFn: async (status: Lead["status"]) => {
       return apiRequest("PATCH", `/api/leads/${lead.id}`, { status });
     },
+    onMutate: async (status) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["/api/leads"]);
+      queryClient.setQueryData<Lead[]>(["/api/leads"], (old) =>
+        old?.map((l) => l.id === lead.id ? { ...l, status } : l)
+      );
+      return { previousLeads };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       toast({ title: "Status atualizado" });
+    },
+    onError: (_err, _status, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["/api/leads"], context.previousLeads);
+      }
+      toast({ title: "Erro ao atualizar", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
   });
 
