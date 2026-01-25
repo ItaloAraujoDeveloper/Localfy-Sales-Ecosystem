@@ -56,8 +56,8 @@ function LoadingScreen() {
 }
 
 function Router() {
-  const { user, isLoading } = useAuth();
-  const [location] = useLocation();
+  const { user, isLoading, isAdmin } = useAuth();
+  const [location, setLocation] = useLocation();
 
   // Preview pages are public
   if (location.startsWith("/ver/")) {
@@ -67,11 +67,13 @@ function Router() {
   // Login page
   if (location === "/login") {
     if (user) {
-      return (
-        <AuthenticatedLayout>
-          <DashboardPage />
-        </AuthenticatedLayout>
-      );
+      // Redirect to appropriate page based on role
+      if (isAdmin) {
+        setLocation("/dashboard");
+      } else {
+        setLocation("/partner");
+      }
+      return <LoadingScreen />;
     }
     return <LoginPage />;
   }
@@ -84,6 +86,13 @@ function Router() {
   // Not authenticated - show landing
   if (!user) {
     return <LandingPage />;
+  }
+
+  // Redirect non-admin users away from admin-only pages
+  const adminOnlyPages = ["/", "/dashboard", "/radar", "/leads", "/sellers"];
+  if (!isAdmin && adminOnlyPages.includes(location)) {
+    setLocation("/partner");
+    return <LoadingScreen />;
   }
 
   // Authenticated - show app
