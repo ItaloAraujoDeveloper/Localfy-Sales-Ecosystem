@@ -141,3 +141,14 @@ Stock images are stored in `client/src/assets/images/` organized by category pre
 - `POST /api/leads/:id/activities` - Create a new activity
 - `PATCH /api/leads/:id/status` - Update lead status with required note
 - `POST /api/leads/:id/call` - Register a call for a lead
+
+### Default Admin User (Auto-created on Startup)
+- **Email**: admin@localfy.com
+- **Password**: admin123
+- The admin user is created automatically when the server starts (see `server/seed.ts`)
+- This ensures the admin can always log in, even in a fresh production environment
+
+### Role-Based Routing
+- Non-admin users are automatically redirected to `/partner` (Minha Carteira)
+- Admin-only pages: Dashboard, Lead Radar, Controle de Leads, Vendedores
+- Sellers only see: CRM Kanban, Minha Carteira

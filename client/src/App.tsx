@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -55,9 +56,17 @@ function LoadingScreen() {
   );
 }
 
+function SafeRedirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+  return <LoadingScreen />;
+}
+
 function Router() {
   const { user, isLoading, isAdmin } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
 
   // Preview pages are public
   if (location.startsWith("/ver/")) {
@@ -67,13 +76,7 @@ function Router() {
   // Login page
   if (location === "/login") {
     if (user) {
-      // Redirect to appropriate page based on role
-      if (isAdmin) {
-        setLocation("/dashboard");
-      } else {
-        setLocation("/partner");
-      }
-      return <LoadingScreen />;
+      return <SafeRedirect to={isAdmin ? "/dashboard" : "/partner"} />;
     }
     return <LoginPage />;
   }
@@ -91,8 +94,7 @@ function Router() {
   // Redirect non-admin users away from admin-only pages
   const adminOnlyPages = ["/", "/dashboard", "/radar", "/leads", "/sellers"];
   if (!isAdmin && adminOnlyPages.includes(location)) {
-    setLocation("/partner");
-    return <LoadingScreen />;
+    return <SafeRedirect to="/partner" />;
   }
 
   // Authenticated - show app
