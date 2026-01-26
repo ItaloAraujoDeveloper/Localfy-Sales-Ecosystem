@@ -23,6 +23,7 @@ export interface IStorage {
   getLeads(): Promise<Lead[]>;
   getLeadsBySeller(sellerId: string): Promise<Lead[]>;
   getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]>;
+  getLeadsByManagerAccess(userId: string, sellerIds: string[]): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
   getLeadBySlug(slug: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
@@ -104,6 +105,29 @@ export class DatabaseStorage implements IStorage {
   async getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]> {
     if (sellerIds.length === 0) return [];
     return await db.select().from(leads).where(inArray(leads.sellerId, sellerIds)).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadsByManagerAccess(userId: string, sellerIds: string[]): Promise<Lead[]> {
+    // Manager can see:
+    // 1. Leads they imported (createdByUserId = userId)
+    // 2. Leads assigned to their sellers (sellerId in sellerIds)
+    if (sellerIds.length === 0) {
+      return await db
+        .select()
+        .from(leads)
+        .where(eq(leads.createdByUserId, userId))
+        .orderBy(desc(leads.createdAt));
+    }
+    return await db
+      .select()
+      .from(leads)
+      .where(
+        or(
+          eq(leads.createdByUserId, userId),
+          inArray(leads.sellerId, sellerIds)
+        )
+      )
+      .orderBy(desc(leads.createdAt));
   }
 
   async getLead(id: string): Promise<Lead | undefined> {

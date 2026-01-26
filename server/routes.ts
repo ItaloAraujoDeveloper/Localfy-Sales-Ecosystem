@@ -155,11 +155,11 @@ export async function registerRoutes(
       if (user.isAdmin || user.role === "admin") {
         leads = await storage.getLeads();
       }
-      // Manager sees leads assigned to their sellers
+      // Manager sees leads they imported + leads assigned to their sellers
       else if (user.role === "manager") {
         const managerSellers = await storage.getSellersByManager(user.id);
         const sellerIds = managerSellers.map(s => s.id);
-        leads = await storage.getLeadsBySellerIds(sellerIds);
+        leads = await storage.getLeadsByManagerAccess(user.id, sellerIds);
       }
       // Seller sees only their own leads
       else {
@@ -197,11 +197,13 @@ export async function registerRoutes(
         return res.json(lead);
       }
       
-      // Manager can access leads from their sellers
+      // Manager can access leads they imported OR leads from their sellers
       if (user.role === "manager") {
         const managerSellers = await storage.getSellersByManager(user.id);
         const sellerIds = managerSellers.map(s => s.id);
-        if (lead.sellerId && sellerIds.includes(lead.sellerId)) {
+        const isCreator = lead.createdByUserId === user.id;
+        const hasSellerAccess = lead.sellerId && sellerIds.includes(lead.sellerId);
+        if (isCreator || hasSellerAccess) {
           return res.json(lead);
         }
         return res.status(403).json({ message: "Access denied" });
@@ -242,8 +244,13 @@ export async function registerRoutes(
   // Create lead
   app.post("/api/leads", isAuthenticated, async (req, res) => {
     try {
+      const user = req.user as any;
       const data = insertLeadSchema.parse(req.body);
-      const lead = await storage.createLead(data);
+      // Set the createdByUserId to track who imported this lead
+      const lead = await storage.createLead({
+        ...data,
+        createdByUserId: user.id,
+      });
       res.status(201).json(lead);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -266,11 +273,13 @@ export async function registerRoutes(
           return res.status(404).json({ message: "Lead not found" });
         }
         
-        // Manager can update leads from their sellers
+        // Manager can update leads they imported OR leads from their sellers
         if (user.role === "manager") {
           const managerSellers = await storage.getSellersByManager(user.id);
           const sellerIds = managerSellers.map(s => s.id);
-          if (!existingLead.sellerId || !sellerIds.includes(existingLead.sellerId)) {
+          const isCreator = existingLead.createdByUserId === user.id;
+          const hasSellerAccess = existingLead.sellerId && sellerIds.includes(existingLead.sellerId);
+          if (!isCreator && !hasSellerAccess) {
             return res.status(403).json({ message: "Access denied" });
           }
         } else {
@@ -375,12 +384,14 @@ export async function registerRoutes(
       // Admin can access all leads
       const isAdminUser = user.isAdmin || user.role === "admin";
       
-      // Manager can access leads from their sellers
+      // Manager can access leads they imported OR leads from their sellers
       let hasManagerAccess = false;
       if (user.role === "manager") {
         const managerSellers = await storage.getSellersByManager(user.id);
         const sellerIds = managerSellers.map(s => s.id);
-        hasManagerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+        const isCreator = lead.createdByUserId === user.id;
+        const hasSellerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+        hasManagerAccess = isCreator || hasSellerAccess;
       }
       
       // Get seller ID for this user (for sellers)
@@ -503,12 +514,14 @@ export async function registerRoutes(
       // Admin can access all leads
       const isAdminUser = user.isAdmin || user.role === "admin";
       
-      // Manager can access leads from their sellers
+      // Manager can access leads they imported OR leads from their sellers
       let hasManagerAccess = false;
       if (user.role === "manager") {
         const managerSellers = await storage.getSellersByManager(user.id);
         const sellerIds = managerSellers.map(s => s.id);
-        hasManagerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+        const isCreator = lead.createdByUserId === user.id;
+        const hasSellerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+        hasManagerAccess = isCreator || hasSellerAccess;
       }
       
       // Get seller ID for this user

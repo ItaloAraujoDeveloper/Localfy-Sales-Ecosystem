@@ -160,7 +160,7 @@ The system has three user roles with hierarchical access:
 - Create and manage their own sellers (each seller has `managerId` linking to their manager)
 - Access Lead Radar to find businesses
 - Generate preview sites via Magic Builder
-- View and manage leads assigned to their sellers only
+- View and manage leads they imported OR leads assigned to their sellers
 - Access: Lead Radar, CRM Kanban, Controle de Leads, Vendedores, Minha Carteira
 - NO access to: Dashboard (admin only), deleting sellers (admin only)
 
@@ -172,8 +172,12 @@ The system has three user roles with hierarchical access:
 
 **Data Isolation**:
 - Managers can only see sellers where `seller.managerId = manager.userId`
-- Managers can only see leads assigned to their sellers
+- Managers can see leads they imported (`createdByUserId = manager.userId`) OR leads assigned to their sellers
 - Admin sees all data (no filtering)
+
+**Lead Tracking**:
+- Each lead has a `createdByUserId` field that tracks who imported/created the lead
+- This allows managers to see leads they imported via Lead Radar, even if not yet assigned to a seller
 
 **API Endpoints for Managers**:
 - `GET /api/managers` - List all managers (admin only)
