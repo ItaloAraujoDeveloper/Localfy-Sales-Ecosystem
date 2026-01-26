@@ -20,6 +20,8 @@ export const sellers = pgTable("sellers", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  city: text("city"),
+  neighborhood: text("neighborhood"),
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true),
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("10.00"),

@@ -24,7 +24,10 @@ import {
   Edit,
   Trash2,
   Loader2,
-  UserCog
+  UserCog,
+  MapPin,
+  Building2,
+  Filter
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -53,6 +56,8 @@ interface SellerFormData {
   name: string;
   email: string;
   phone: string;
+  city: string;
+  neighborhood: string;
   commissionRate: string;
   password: string;
   managerId?: string;
@@ -80,6 +85,8 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
       name: "",
       email: "",
       phone: "",
+      city: "",
+      neighborhood: "",
       commissionRate: "10.00",
       password: "",
       managerId: "",
@@ -92,6 +99,8 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        city: data.city || undefined,
+        neighborhood: data.neighborhood || undefined,
         commissionRate: data.commissionRate,
         password: data.password,
         managerId: data.managerId === "none" ? undefined : (data.managerId || undefined),
@@ -171,6 +180,34 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cidade</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Sao Paulo" {...field} data-testid="input-seller-city" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="neighborhood"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bairro</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Centro" {...field} data-testid="input-seller-neighborhood" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="password"
@@ -260,6 +297,8 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
     name: seller.name,
     email: seller.email || "",
     phone: seller.phone || "",
+    city: seller.city || "",
+    neighborhood: seller.neighborhood || "",
     commissionRate: seller.commissionRate || "10",
     managerId: seller.managerId || "none",
   });
@@ -270,6 +309,8 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
         name: seller.name,
         email: seller.email || "",
         phone: seller.phone || "",
+        city: seller.city || "",
+        neighborhood: seller.neighborhood || "",
         commissionRate: seller.commissionRate || "10",
         managerId: seller.managerId || "none",
       });
@@ -304,6 +345,8 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        city: data.city || null,
+        neighborhood: data.neighborhood || null,
         commissionRate: data.commissionRate,
         managerId: data.managerId === "none" ? null : (data.managerId || null),
       });
@@ -397,6 +440,16 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
               <span>{seller.phone}</span>
             </div>
           )}
+          {(seller.city || seller.neighborhood) && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>
+                {seller.neighborhood && seller.city 
+                  ? `${seller.neighborhood}, ${seller.city}` 
+                  : seller.neighborhood || seller.city}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4 pt-4 border-t">
@@ -461,6 +514,26 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
               data-testid="input-edit-seller-phone"
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-city">Cidade</Label>
+              <Input
+                id="edit-city"
+                value={editData.city}
+                onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+                data-testid="input-edit-seller-city"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-neighborhood">Bairro</Label>
+              <Input
+                id="edit-neighborhood"
+                value={editData.neighborhood}
+                onChange={(e) => setEditData({ ...editData, neighborhood: e.target.value })}
+                data-testid="input-edit-seller-neighborhood"
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="edit-commission">Comissao (%)</Label>
             <Input
@@ -510,6 +583,9 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
 }
 
 export default function SellersPage() {
+  const [cityFilter, setCityFilter] = useState<string>("all");
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("all");
+  
   const { data: sellers, isLoading: sellersLoading } = useQuery<Seller[]>({
     queryKey: ["/api/sellers"],
   });
@@ -519,6 +595,20 @@ export default function SellersPage() {
   });
 
   const isLoading = sellersLoading || leadsLoading;
+
+  const cities = Array.from(new Set(sellers?.map(s => s.city).filter((c): c is string => !!c) || [])).sort();
+  const neighborhoods = Array.from(new Set(
+    sellers
+      ?.filter(s => cityFilter === "all" || s.city === cityFilter)
+      .map(s => s.neighborhood)
+      .filter((n): n is string => !!n) || []
+  )).sort();
+
+  const filteredSellers = sellers?.filter(s => {
+    if (cityFilter !== "all" && s.city !== cityFilter) return false;
+    if (neighborhoodFilter !== "all" && s.neighborhood !== neighborhoodFilter) return false;
+    return true;
+  });
 
   const activeSellers = sellers?.filter(s => s.isActive).length || 0;
   const totalLeadsAssigned = leads?.filter(l => l.sellerId).length || 0;
@@ -589,21 +679,104 @@ export default function SellersPage() {
         </Card>
       </div>
 
+      {/* Filters */}
+      {(cities.length > 0 || neighborhoods.length > 0) && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <span className="text-sm font-medium">Filtros:</span>
+              </div>
+              
+              {cities.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <Select value={cityFilter} onValueChange={(value) => {
+                    setCityFilter(value);
+                    setNeighborhoodFilter("all");
+                  }}>
+                    <SelectTrigger className="w-40" data-testid="select-filter-city">
+                      <SelectValue placeholder="Cidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as cidades</SelectItem>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city as string}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {neighborhoods.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <Select value={neighborhoodFilter} onValueChange={setNeighborhoodFilter}>
+                    <SelectTrigger className="w-40" data-testid="select-filter-neighborhood">
+                      <SelectValue placeholder="Bairro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os bairros</SelectItem>
+                      {neighborhoods.map((neighborhood) => (
+                        <SelectItem key={neighborhood} value={neighborhood as string}>
+                          {neighborhood}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {(cityFilter !== "all" || neighborhoodFilter !== "all") && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setCityFilter("all");
+                    setNeighborhoodFilter("all");
+                  }}
+                  data-testid="button-clear-filters"
+                >
+                  Limpar filtros
+                </Button>
+              )}
+
+              {filteredSellers && sellers && filteredSellers.length !== sellers.length && (
+                <span className="text-sm text-muted-foreground ml-auto">
+                  {filteredSellers.length} de {sellers.length} vendedores
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Sellers Grid */}
-      {sellers?.length === 0 ? (
+      {filteredSellers?.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Users className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum vendedor cadastrado</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {(cityFilter !== "all" || neighborhoodFilter !== "all") 
+                ? "Nenhum vendedor encontrado" 
+                : "Nenhum vendedor cadastrado"}
+            </h3>
             <p className="text-muted-foreground text-center max-w-md mb-4">
-              Adicione vendedores parceiros para distribuir leads e acompanhar comissoes.
+              {(cityFilter !== "all" || neighborhoodFilter !== "all") 
+                ? "Tente ajustar os filtros para encontrar vendedores." 
+                : "Adicione vendedores parceiros para distribuir leads e acompanhar comissoes."}
             </p>
-            <AddSellerDialog onSuccess={() => {}} />
+            {(cityFilter === "all" && neighborhoodFilter === "all") && (
+              <AddSellerDialog onSuccess={() => {}} />
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sellers?.map(seller => (
+          {filteredSellers?.map(seller => (
             <SellerCard key={seller.id} seller={seller} leads={leads || []} />
           ))}
         </div>
