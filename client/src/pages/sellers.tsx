@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,7 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
         phone: data.phone,
         commissionRate: data.commissionRate,
         password: data.password,
-        managerId: data.managerId || undefined,
+        managerId: data.managerId === "none" ? undefined : (data.managerId || undefined),
         isActive: true,
       });
     },
@@ -212,6 +212,7 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="none">Sem gerente</SelectItem>
                         {managers.map((manager) => (
                           <SelectItem key={manager.id} value={manager.id}>
                             <div className="flex items-center gap-2">
@@ -260,8 +261,20 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
     email: seller.email || "",
     phone: seller.phone || "",
     commissionRate: seller.commissionRate || "10",
-    managerId: seller.managerId || "",
+    managerId: seller.managerId || "none",
   });
+
+  useEffect(() => {
+    if (editOpen) {
+      setEditData({
+        name: seller.name,
+        email: seller.email || "",
+        phone: seller.phone || "",
+        commissionRate: seller.commissionRate || "10",
+        managerId: seller.managerId || "none",
+      });
+    }
+  }, [editOpen, seller]);
 
   const toggleActiveMutation = useMutation({
     mutationFn: async () => {
