@@ -292,7 +292,7 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
         email: data.email,
         phone: data.phone,
         commissionRate: data.commissionRate,
-        managerId: data.managerId || null,
+        managerId: data.managerId === "none" ? null : (data.managerId || null),
       });
     },
     onSuccess: () => {
@@ -470,7 +470,7 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
                   <SelectValue placeholder="Selecione um gerente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem gerente</SelectItem>
+                  <SelectItem value="none">Sem gerente</SelectItem>
                   {managers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id}>
                       {manager.firstName} {manager.lastName}
