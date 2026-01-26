@@ -23,6 +23,7 @@ import ManagersPage from "@/pages/managers";
 import PreviewPage from "@/pages/preview";
 import SellerLeadsPage from "@/pages/seller-leads";
 import SellerDashboardPage from "@/pages/seller-dashboard";
+import SettingsPage from "@/pages/settings";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -123,6 +124,7 @@ function Router() {
         <Route path="/seller-dashboard" component={SellerDashboardPage} />
         <Route path="/sellers" component={SellersPage} />
         <Route path="/managers" component={ManagersPage} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

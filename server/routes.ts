@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin, isAdminOrManager } from "./auth";
-import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, type Lead, users, sellers } from "@shared/schema";
+import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, type Lead, type User, users, sellers } from "@shared/schema";
 import { z } from "zod";
 import { generateImageBuffer } from "./replit_integrations/image/client";
 import bcrypt from "bcryptjs";
@@ -1050,6 +1050,45 @@ Retorne um JSON com:
     } catch (error) {
       console.error("Error fetching seller activities:", error);
       res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // ========== USER SETTINGS ==========
+
+  // Change password
+  app.post("/api/user/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Senha atual e nova senha são obrigatórias" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Nova senha deve ter pelo menos 6 caracteres" });
+      }
+
+      // Get user with passwordHash
+      const [fullUser] = await db.select().from(users).where(eq(users.id, user.id));
+      if (!fullUser || !fullUser.passwordHash) {
+        return res.status(400).json({ message: "Usuário não encontrado" });
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, fullUser.passwordHash);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+
+      // Hash new password and update
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.update(users).set({ passwordHash: hashedPassword }).where(eq(users.id, user.id));
+
+      res.json({ message: "Senha alterada com sucesso" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "Erro ao alterar senha" });
     }
   });
 

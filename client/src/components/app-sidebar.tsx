@@ -190,28 +190,40 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-sm">
-              {getInitials(user?.firstName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user?.firstName || "Usuario"} {user?.lastName || ""}
-            </p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">
-              {user?.email || ""}
-            </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarImage src={user?.profileImageUrl || undefined} />
+              <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-sm">
+                {getInitials(user?.firstName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {user?.firstName || "Usuario"} {user?.lastName || ""}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">
+                {user?.email || ""}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => logout()}
-            className="p-2 rounded-md hover-elevate text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/settings"
+              className="flex-1 flex items-center justify-center gap-2 p-2 rounded-md hover-elevate text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors text-sm"
+              data-testid="button-settings"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Configuracoes</span>
+            </Link>
+            <button
+              onClick={() => logout()}
+              className="p-2 rounded-md hover-elevate text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
