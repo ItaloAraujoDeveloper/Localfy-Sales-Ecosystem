@@ -193,7 +193,7 @@ function HistoryDialog({
                           {ACTIVITY_TYPE_LABELS[activity.activityType as keyof typeof ACTIVITY_TYPE_LABELS] || activity.activityType}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {formatDate(activity.createdAt as string)}
+                          {formatDate(activity.createdAt)}
                         </span>
                       </div>
                       {activity.description && (
@@ -241,7 +241,7 @@ function CallModal({
   const { toast } = useToast();
   const [callResult, setCallResult] = useState<string>("");
   const [callNote, setCallNote] = useState("");
-  const [nextAction, setNextAction] = useState<LeadStatus | "">("");
+  const [nextAction, setNextAction] = useState<LeadStatus | "keep" | "">("");
 
   const registerCallMutation = useMutation({
     mutationFn: async () => {
@@ -905,7 +905,7 @@ export default function SellerLeadsPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {lead.previewSlug && (
+                                {lead.siteGenerated && lead.previewSlug && (
                                   <DropdownMenuItem 
                                     onClick={() => window.open(`/ver/${lead.previewSlug}`, "_blank")}
                                     data-testid={`menu-preview-${lead.id}`}

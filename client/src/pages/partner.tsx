@@ -208,15 +208,17 @@ ${previewUrl}
             <MessageCircle className="h-4 w-4" />
             WhatsApp
           </Button>
-          <Button 
-            variant="outline"
-            asChild
-          >
-            <a href={`/ver/${lead.previewSlug || lead.id}`} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Ver Site
-            </a>
-          </Button>
+          {lead.siteGenerated && lead.previewSlug && (
+            <Button 
+              variant="outline"
+              asChild
+            >
+              <a href={`/ver/${lead.previewSlug}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Ver Site
+              </a>
+            </Button>
+          )}
         </div>
 
         {/* Call Registration Button */}

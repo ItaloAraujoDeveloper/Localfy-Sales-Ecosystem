@@ -503,7 +503,7 @@ export default function LeadsPage() {
                             )}
                           </Button>
                         )}
-                        {lead.previewSlug && (
+                        {lead.siteGenerated && lead.previewSlug && (
                           <Button
                             size="icon"
                             variant="ghost"

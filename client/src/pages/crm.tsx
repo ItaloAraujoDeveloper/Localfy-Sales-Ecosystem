@@ -67,13 +67,17 @@ function LeadCard({ lead, sellers }: { lead: Lead; sellers: Seller[] }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <a href={`/ver/${lead.previewSlug || lead.id}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Ver Preview
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {lead.siteGenerated && lead.previewSlug && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <a href={`/ver/${lead.previewSlug}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Ver Preview
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {LEAD_STATUSES.filter(s => s !== lead.status).map(status => (
                 <DropdownMenuItem 
                   key={status}
