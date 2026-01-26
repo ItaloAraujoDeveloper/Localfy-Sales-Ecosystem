@@ -808,6 +808,97 @@ Retorne um JSON com:
     }
   });
 
+  // ========== MANAGERS (Admin only) ==========
+
+  // Get all managers
+  app.get("/api/managers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const managers = await db.select().from(users).where(eq(users.role, "manager"));
+      res.json(managers.map(m => ({
+        id: m.id,
+        email: m.email,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        role: m.role,
+        createdAt: m.createdAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching managers:", error);
+      res.status(500).json({ message: "Failed to fetch managers" });
+    }
+  });
+
+  // Create manager (admin only)
+  app.post("/api/managers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const managerSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        firstName: z.string().min(1),
+        lastName: z.string().optional(),
+      });
+      
+      const data = managerSchema.parse(req.body);
+      
+      // Check if email exists
+      const existing = await storage.getUserByEmail(data.email);
+      if (existing) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+      
+      // Hash password and create manager
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      
+      const [newManager] = await db
+        .insert(users)
+        .values({
+          email: data.email,
+          passwordHash,
+          firstName: data.firstName,
+          lastName: data.lastName || "",
+          isAdmin: false,
+          role: "manager",
+        })
+        .returning();
+      
+      res.status(201).json({
+        id: newManager.id,
+        email: newManager.email,
+        firstName: newManager.firstName,
+        lastName: newManager.lastName,
+        role: newManager.role,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating manager:", error);
+      res.status(500).json({ message: "Failed to create manager" });
+    }
+  });
+
+  // Delete manager (admin only)
+  app.delete("/api/managers/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const managerId = req.params.id as string;
+      
+      // Check if manager has sellers
+      const managerSellers = await storage.getSellersByManager(managerId);
+      if (managerSellers.length > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete manager with assigned sellers. Reassign sellers first." 
+        });
+      }
+      
+      // Delete the manager user
+      await db.delete(users).where(eq(users.id, managerId));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting manager:", error);
+      res.status(500).json({ message: "Failed to delete manager" });
+    }
+  });
+
   // ========== COMMISSIONS ==========
 
   // Get all commissions

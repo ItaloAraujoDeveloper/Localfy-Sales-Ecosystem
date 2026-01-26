@@ -148,7 +148,45 @@ Stock images are stored in `client/src/assets/images/` organized by category pre
 - The admin user is created automatically when the server starts (see `server/seed.ts`)
 - This ensures the admin can always log in, even in a fresh production environment
 
+### Role-Based System (January 2026)
+The system has three user roles with hierarchical access:
+
+**Role Types** (stored in `users.role` column):
+- `admin`: Full access to everything, can create managers
+- `manager`: Can create/manage sellers, view only their sellers' leads
+- `seller`: Can only access Partner App (Minha Carteira)
+
+**Manager Features**:
+- Create and manage their own sellers (each seller has `managerId` linking to their manager)
+- Access Lead Radar to find businesses
+- Generate preview sites via Magic Builder
+- View and manage leads assigned to their sellers only
+- Access: Lead Radar, CRM Kanban, Controle de Leads, Vendedores, Minha Carteira
+- NO access to: Dashboard (admin only), deleting sellers (admin only)
+
+**Admin Features**:
+- All manager features plus Dashboard access
+- Create/delete managers via `/api/managers` endpoints
+- View all sellers and leads across all managers
+- Delete sellers
+
+**Data Isolation**:
+- Managers can only see sellers where `seller.managerId = manager.userId`
+- Managers can only see leads assigned to their sellers
+- Admin sees all data (no filtering)
+
+**API Endpoints for Managers**:
+- `GET /api/managers` - List all managers (admin only)
+- `POST /api/managers` - Create a new manager (admin only)
+- `DELETE /api/managers/:id` - Delete a manager (admin only, fails if has sellers)
+
+### Default Admin User (Auto-created on Startup)
+- **Email**: admin@localfy.com
+- **Password**: admin123
+- **Role**: admin (set via `server/seed.ts`)
+
 ### Role-Based Routing
-- Non-admin users are automatically redirected to `/partner` (Minha Carteira)
-- Admin-only pages: Dashboard, Lead Radar, Controle de Leads, Vendedores
-- Sellers only see: CRM Kanban, Minha Carteira
+- Non-admin/non-manager users are automatically redirected to `/partner`
+- Admin-only pages: Dashboard
+- Manager and Admin pages: Lead Radar, Controle de Leads, Vendedores, CRM Kanban
+- Sellers only see: Partner App (Minha Carteira)
