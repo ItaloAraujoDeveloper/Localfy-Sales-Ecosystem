@@ -7,12 +7,13 @@ import {
   type LeadActivity, type InsertLeadActivity,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, inArray, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Sellers
   getSellers(): Promise<Seller[]>;
+  getSellersByManager(managerId: string): Promise<Seller[]>;
   getSeller(id: string): Promise<Seller | undefined>;
   createSeller(seller: InsertSeller): Promise<Seller>;
   updateSeller(id: string, data: Partial<InsertSeller>): Promise<Seller | undefined>;
@@ -55,6 +56,14 @@ export class DatabaseStorage implements IStorage {
   // Sellers
   async getSellers(): Promise<Seller[]> {
     return await db.select().from(sellers).orderBy(desc(sellers.createdAt));
+  }
+
+  async getSellersByManager(managerId: string): Promise<Seller[]> {
+    return await db
+      .select()
+      .from(sellers)
+      .where(eq(sellers.managerId, managerId))
+      .orderBy(desc(sellers.createdAt));
   }
 
   async getSeller(id: string): Promise<Seller | undefined> {

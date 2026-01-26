@@ -200,8 +200,38 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Nao autenticado" });
   }
 
-  if (!user.isAdmin) {
+  if (!user.isAdmin && user.role !== "admin") {
     return res.status(403).json({ message: "Acesso restrito a administradores" });
+  }
+
+  next();
+};
+
+// Middleware to check if user is admin or manager
+export const isAdminOrManager: RequestHandler = async (req, res, next) => {
+  const user = (req as any).user;
+
+  if (!user) {
+    return res.status(401).json({ message: "Nao autenticado" });
+  }
+
+  if (!user.isAdmin && user.role !== "admin" && user.role !== "manager") {
+    return res.status(403).json({ message: "Acesso restrito a administradores ou gerentes" });
+  }
+
+  next();
+};
+
+// Middleware to check if user is manager
+export const isManager: RequestHandler = async (req, res, next) => {
+  const user = (req as any).user;
+
+  if (!user) {
+    return res.status(401).json({ message: "Nao autenticado" });
+  }
+
+  if (user.role !== "manager") {
+    return res.status(403).json({ message: "Acesso restrito a gerentes" });
   }
 
   next();

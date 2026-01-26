@@ -16,6 +16,7 @@ export const activityTypeEnum = pgEnum("activity_type", ["status_change", "call"
 export const sellers = pgTable("sellers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
+  managerId: varchar("manager_id"),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
