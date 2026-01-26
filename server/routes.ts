@@ -1,13 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin } from "./auth";
+import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin, isAdminOrManager } from "./auth";
 import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, users, sellers } from "@shared/schema";
 import { z } from "zod";
 import { generateImageBuffer } from "./replit_integrations/image/client";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 // Google Places API configuration
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
@@ -145,15 +145,24 @@ export async function registerRoutes(
 
   // ========== LEADS ==========
   
-  // Get all leads (filtered by seller if not admin)
+  // Get all leads (filtered by role)
   app.get("/api/leads", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
       let leads = await storage.getLeads();
       
-      // If user is not admin, filter to show only their assigned leads
-      if (!user.isAdmin) {
-        // Find the seller record for this user
+      // Admin sees all leads
+      if (user.isAdmin || user.role === "admin") {
+        // No filtering needed
+      }
+      // Manager sees leads assigned to their sellers
+      else if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        leads = leads.filter(lead => lead.sellerId && sellerIds.includes(lead.sellerId));
+      }
+      // Seller sees only their own leads
+      else {
         const [seller] = await db
           .select()
           .from(sellers)
@@ -163,7 +172,6 @@ export async function registerRoutes(
         if (seller) {
           leads = leads.filter(lead => lead.sellerId === seller.id);
         } else {
-          // User is not a seller, show no leads
           leads = [];
         }
       }
@@ -175,7 +183,7 @@ export async function registerRoutes(
     }
   });
 
-  // Get single lead (sellers can only access their own leads)
+  // Get single lead (with role-based access control)
   app.get("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
@@ -184,17 +192,30 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Lead not found" });
       }
       
-      // If user is not admin, verify they own this lead
-      if (!user.isAdmin) {
-        const [seller] = await db
-          .select()
-          .from(sellers)
-          .where(eq(sellers.userId, user.id))
-          .limit(1);
-        
-        if (!seller || lead.sellerId !== seller.id) {
-          return res.status(403).json({ message: "Access denied" });
+      // Admin can access all leads
+      if (user.isAdmin || user.role === "admin") {
+        return res.json(lead);
+      }
+      
+      // Manager can access leads from their sellers
+      if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        if (lead.sellerId && sellerIds.includes(lead.sellerId)) {
+          return res.json(lead);
         }
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Seller can only access their own leads
+      const [seller] = await db
+        .select()
+        .from(sellers)
+        .where(eq(sellers.userId, user.id))
+        .limit(1);
+      
+      if (!seller || lead.sellerId !== seller.id) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       res.json(lead);
@@ -233,26 +254,36 @@ export async function registerRoutes(
     }
   });
 
-  // Update lead (sellers can only update their own leads)
+  // Update lead (with role-based access control)
   app.patch("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
       
-      // Check ownership for non-admins
-      if (!user.isAdmin) {
+      // Admin can update all leads
+      if (!user.isAdmin && user.role !== "admin") {
         const existingLead = await storage.getLead(req.params.id);
         if (!existingLead) {
           return res.status(404).json({ message: "Lead not found" });
         }
         
-        const [seller] = await db
-          .select()
-          .from(sellers)
-          .where(eq(sellers.userId, user.id))
-          .limit(1);
-        
-        if (!seller || existingLead.sellerId !== seller.id) {
-          return res.status(403).json({ message: "Access denied" });
+        // Manager can update leads from their sellers
+        if (user.role === "manager") {
+          const managerSellers = await storage.getSellersByManager(user.id);
+          const sellerIds = managerSellers.map(s => s.id);
+          if (!existingLead.sellerId || !sellerIds.includes(existingLead.sellerId)) {
+            return res.status(403).json({ message: "Access denied" });
+          }
+        } else {
+          // Seller can only update their own leads
+          const [seller] = await db
+            .select()
+            .from(sellers)
+            .where(eq(sellers.userId, user.id))
+            .limit(1);
+          
+          if (!seller || existingLead.sellerId !== seller.id) {
+            return res.status(403).json({ message: "Access denied" });
+          }
         }
       }
       
@@ -461,8 +492,8 @@ export async function registerRoutes(
 
   // ========== AI SITE GENERATION ==========
 
-  // Generate site content for a lead using AI (admin only)
-  app.post("/api/leads/:id/generate-site", isAuthenticated, isAdmin, async (req, res) => {
+  // Generate site content for a lead using AI (admin or manager)
+  app.post("/api/leads/:id/generate-site", isAuthenticated, isAdminOrManager, async (req, res) => {
     try {
       const { id } = req.params;
       const { customPrompt } = req.body;
@@ -618,24 +649,44 @@ Retorne um JSON com:
 
   // ========== SELLERS ==========
 
-  // Get all sellers
+  // Get all sellers (filtered by manager if not admin)
   app.get("/api/sellers", isAuthenticated, async (req, res) => {
     try {
-      const sellers = await storage.getSellers();
-      res.json(sellers);
+      const user = req.user as any;
+      
+      // Admin sees all sellers
+      if (user.isAdmin || user.role === "admin") {
+        const sellersList = await storage.getSellers();
+        return res.json(sellersList);
+      } 
+      // Manager sees only their sellers
+      if (user.role === "manager") {
+        const sellersList = await storage.getSellersByManager(user.id);
+        return res.json(sellersList);
+      } 
+      // Sellers see nothing
+      res.json([]);
     } catch (error) {
       console.error("Error fetching sellers:", error);
       res.status(500).json({ message: "Failed to fetch sellers" });
     }
   });
 
-  // Get single seller
+  // Get single seller (with access control)
   app.get("/api/sellers/:id", isAuthenticated, async (req, res) => {
     try {
+      const user = req.user as any;
       const seller = await storage.getSeller(req.params.id);
+      
       if (!seller) {
         return res.status(404).json({ message: "Seller not found" });
       }
+      
+      // Manager can only access their own sellers
+      if (user.role === "manager" && seller.managerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       res.json(seller);
     } catch (error) {
       console.error("Error fetching seller:", error);
@@ -643,7 +694,7 @@ Retorne um JSON com:
     }
   });
 
-  // Create seller with user account (admin only)
+  // Create seller with user account (admin or manager)
   const createSellerSchema = z.object({
     name: z.string().min(1),
     email: z.string().email(),
@@ -653,8 +704,9 @@ Retorne um JSON com:
     isActive: z.boolean().optional(),
   });
 
-  app.post("/api/sellers", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/sellers", isAuthenticated, isAdminOrManager, async (req, res) => {
     try {
+      const user = req.user as any;
       const data = createSellerSchema.parse(req.body);
 
       // Check if email is already in use
@@ -674,6 +726,9 @@ Retorne um JSON com:
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || "";
 
+      // Determine manager ID (manager assigns themselves, admin leaves null)
+      const managerId = user.role === "manager" ? user.id : null;
+
       // Create user and seller in a transaction
       const result = await db.transaction(async (tx) => {
         const [newUser] = await tx
@@ -684,6 +739,7 @@ Retorne um JSON com:
             firstName,
             lastName,
             isAdmin: false,
+            role: "seller",
           })
           .returning();
 
@@ -691,6 +747,7 @@ Retorne um JSON com:
           .insert(sellers)
           .values({
             userId: newUser.id,
+            managerId,
             name: data.name,
             email: data.email,
             phone: data.phone || null,
@@ -712,9 +769,19 @@ Retorne um JSON com:
     }
   });
 
-  // Update seller (admin only)
-  app.patch("/api/sellers/:id", isAuthenticated, isAdmin, async (req, res) => {
+  // Update seller (admin or manager for their own sellers)
+  app.patch("/api/sellers/:id", isAuthenticated, isAdminOrManager, async (req, res) => {
     try {
+      const user = req.user as any;
+      
+      // Check if manager can access this seller
+      if (user.role === "manager") {
+        const existingSeller = await storage.getSeller(req.params.id);
+        if (!existingSeller || existingSeller.managerId !== user.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
       const data = updateSellerSchema.parse(req.body);
       const seller = await storage.updateSeller(req.params.id, data);
       if (!seller) {

@@ -65,7 +65,7 @@ function SafeRedirect({ to }: { to: string }) {
 }
 
 function Router() {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, isAdmin, isManager } = useAuth();
   const [location] = useLocation();
 
   // Preview pages are public
@@ -76,7 +76,8 @@ function Router() {
   // Login page
   if (location === "/login") {
     if (user) {
-      return <SafeRedirect to={isAdmin ? "/dashboard" : "/partner"} />;
+      const redirectTo = isAdmin ? "/dashboard" : isManager ? "/radar" : "/partner";
+      return <SafeRedirect to={redirectTo} />;
     }
     return <LoginPage />;
   }
@@ -91,9 +92,17 @@ function Router() {
     return <LandingPage />;
   }
 
-  // Redirect non-admin users away from admin-only pages
-  const adminOnlyPages = ["/", "/dashboard", "/radar", "/leads", "/sellers"];
+  // Dashboard is admin-only
+  const adminOnlyPages = ["/", "/dashboard"];
   if (!isAdmin && adminOnlyPages.includes(location)) {
+    const redirectTo = isManager ? "/radar" : "/partner";
+    return <SafeRedirect to={redirectTo} />;
+  }
+
+  // Manager can access: /radar, /leads, /sellers, /crm
+  // Seller can only access: /crm, /partner
+  const managerPages = ["/radar", "/leads", "/sellers"];
+  if (!isAdmin && !isManager && managerPages.includes(location)) {
     return <SafeRedirect to="/partner" />;
   }
 

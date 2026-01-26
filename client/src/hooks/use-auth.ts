@@ -59,11 +59,18 @@ export function useAuth() {
     },
   });
 
+  const role = (user as any)?.role ?? "seller";
+  const isAdmin = user?.isAdmin || role === "admin";
+  const isManager = role === "manager";
+
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
-    isAdmin: user?.isAdmin ?? false,
+    isAdmin,
+    isManager,
+    isAdminOrManager: isAdmin || isManager,
+    role,
     login: loginMutation.mutateAsync,
     loginError: loginMutation.error,
     isLoggingIn: loginMutation.isPending,

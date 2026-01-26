@@ -52,6 +52,29 @@ const adminMenuItems = [
   },
 ];
 
+const managerMenuItems = [
+  {
+    title: "Lead Radar",
+    url: "/radar",
+    icon: Radar,
+  },
+  {
+    title: "CRM Kanban",
+    url: "/crm",
+    icon: Kanban,
+  },
+  {
+    title: "Controle de Leads",
+    url: "/leads",
+    icon: TableProperties,
+  },
+  {
+    title: "Vendedores",
+    url: "/sellers",
+    icon: Users,
+  },
+];
+
 const sellerMenuItems = [
   {
     title: "CRM Kanban",
@@ -67,10 +90,10 @@ const sellerMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isManager } = useAuth();
 
-  // Show admin menu items only for admins
-  const menuItems = isAdmin ? adminMenuItems : sellerMenuItems;
+  // Show menu items based on role
+  const menuItems = isAdmin ? adminMenuItems : isManager ? managerMenuItems : sellerMenuItems;
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U";
@@ -85,7 +108,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <Link href={isAdmin ? "/dashboard" : "/partner"} className="flex items-center gap-3">
+        <Link href={isAdmin ? "/dashboard" : isManager ? "/radar" : "/partner"} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
             <Sparkles className="h-5 w-5 text-primary-foreground" />
           </div>

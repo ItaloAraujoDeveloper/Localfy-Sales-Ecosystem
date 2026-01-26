@@ -27,6 +27,7 @@ export async function seedDefaultAdmin() {
       firstName: "Administrador",
       lastName: "Localfy",
       isAdmin: true,
+      role: "admin",
     });
 
     console.log("[seed] Default admin user created: admin@localfy.com / admin123");
