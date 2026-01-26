@@ -242,11 +242,26 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
 
 function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  const [editOpen, setEditOpen] = useState(false);
   
   const sellerLeads = leads.filter(l => l.sellerId === seller.id);
   const wonLeads = sellerLeads.filter(l => l.status === "won");
   const totalMrr = wonLeads.reduce((sum, l) => sum + parseFloat(l.monthlyValue || "0"), 0);
   const commission = totalMrr * (parseFloat(seller.commissionRate || "10") / 100);
+
+  const { data: managers } = useQuery<Manager[]>({
+    queryKey: ["/api/managers"],
+    enabled: isAdmin && editOpen,
+  });
+
+  const [editData, setEditData] = useState({
+    name: seller.name,
+    email: seller.email || "",
+    phone: seller.phone || "",
+    commissionRate: seller.commissionRate || "10",
+    managerId: seller.managerId || "",
+  });
 
   const toggleActiveMutation = useMutation({
     mutationFn: async () => {
@@ -270,6 +285,26 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: typeof editData) => {
+      return apiRequest("PATCH", `/api/sellers/${seller.id}`, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        commissionRate: data.commissionRate,
+        managerId: data.managerId || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sellers"] });
+      toast({ title: "Vendedor atualizado com sucesso" });
+      setEditOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar vendedor", variant: "destructive" });
+    },
+  });
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -279,7 +314,13 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
       .slice(0, 2);
   };
 
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate(editData);
+  };
+
   return (
+    <>
     <Card className={`hover-elevate ${!seller.isActive ? "opacity-60" : ""}`}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
@@ -308,6 +349,10 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 disabled={toggleActiveMutation.isPending}
                 onClick={() => toggleActiveMutation.mutate()}
@@ -368,6 +413,86 @@ function SellerCard({ seller, leads }: { seller: Seller; leads: Lead[] }) {
         </div>
       </CardContent>
     </Card>
+    
+    <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar Vendedor</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Nome</Label>
+            <Input
+              id="edit-name"
+              value={editData.name}
+              onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+              data-testid="input-edit-seller-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-email">Email</Label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={editData.email}
+              onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+              data-testid="input-edit-seller-email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-phone">Telefone</Label>
+            <Input
+              id="edit-phone"
+              value={editData.phone}
+              onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+              data-testid="input-edit-seller-phone"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-commission">Comissao (%)</Label>
+            <Input
+              id="edit-commission"
+              type="number"
+              step="0.01"
+              value={editData.commissionRate}
+              onChange={(e) => setEditData({ ...editData, commissionRate: e.target.value })}
+              data-testid="input-edit-seller-commission"
+            />
+          </div>
+          {isAdmin && managers && managers.length > 0 && (
+            <div className="space-y-2">
+              <Label>Gerente Responsavel</Label>
+              <Select
+                value={editData.managerId}
+                onValueChange={(value) => setEditData({ ...editData, managerId: value })}
+              >
+                <SelectTrigger data-testid="select-edit-seller-manager">
+                  <SelectValue placeholder="Selecione um gerente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sem gerente</SelectItem>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.firstName} {manager.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-edit-seller">
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
