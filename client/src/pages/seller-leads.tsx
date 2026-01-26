@@ -533,29 +533,29 @@ export default function SellerLeadsPage() {
   });
 
   const activityMaps = useMemo(() => {
-    const lastStatusMap = new Map<string, LeadActivity | null>();
+    const lastCallMap = new Map<string, LeadActivity | null>();
     const lastContactMap = new Map<string, Date | null>();
     
-    if (!allActivities) return { lastStatusMap, lastContactMap };
+    if (!allActivities) return { lastCallMap, lastContactMap };
     
     const sortedActivities = [...allActivities].sort((a, b) => 
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
     
     for (const activity of sortedActivities) {
-      if (activity.activityType === "status_change" && !lastStatusMap.has(activity.leadId)) {
-        lastStatusMap.set(activity.leadId, activity);
+      if (activity.activityType === "call" && !lastCallMap.has(activity.leadId)) {
+        lastCallMap.set(activity.leadId, activity);
       }
       if ((activity.activityType === "call" || activity.activityType === "note") && !lastContactMap.has(activity.leadId)) {
         lastContactMap.set(activity.leadId, activity.createdAt ? new Date(activity.createdAt) : null);
       }
     }
     
-    return { lastStatusMap, lastContactMap };
+    return { lastCallMap, lastContactMap };
   }, [allActivities]);
 
-  const getLastStatusChange = (leadId: string): LeadActivity | null => {
-    return activityMaps.lastStatusMap.get(leadId) ?? null;
+  const getLastCall = (leadId: string): LeadActivity | null => {
+    return activityMaps.lastCallMap.get(leadId) ?? null;
   };
 
   const getLastContact = (leadId: string): Date | null => {
@@ -847,7 +847,7 @@ export default function SellerLeadsPage() {
                   <TableHead>Localizacao</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Ultimo Status</TableHead>
+                  <TableHead>Ultima Ligacao</TableHead>
                   <TableHead>Ultimo Contato</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead className="text-right">Acoes</TableHead>
@@ -934,19 +934,17 @@ export default function SellerLeadsPage() {
                             {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS]}
                           </Badge>
                         </TableCell>
-                        <TableCell data-testid={`cell-last-status-${lead.id}`}>
+                        <TableCell data-testid={`cell-last-call-${lead.id}`}>
                           {(() => {
-                            const lastStatus = getLastStatusChange(lead.id);
-                            if (!lastStatus) return <span className="text-xs text-muted-foreground">-</span>;
+                            const lastCall = getLastCall(lead.id);
+                            if (!lastCall) return <span className="text-xs text-muted-foreground">-</span>;
                             return (
                               <div className="flex flex-col gap-0.5">
-                                {lastStatus.newStatus && (
-                                  <Badge className={statusColors[lastStatus.newStatus] + " border-0 text-xs"} data-testid={`badge-last-status-${lead.id}`}>
-                                    {STATUS_LABELS[lastStatus.newStatus as keyof typeof STATUS_LABELS]}
-                                  </Badge>
-                                )}
-                                <span className="text-xs text-muted-foreground" data-testid={`text-last-status-date-${lead.id}`}>
-                                  {lastStatus.createdAt ? new Date(lastStatus.createdAt).toLocaleDateString('pt-BR') : ''}
+                                <span className="text-xs font-medium" data-testid={`text-last-call-result-${lead.id}`}>
+                                  {lastCall.description || "Ligacao realizada"}
+                                </span>
+                                <span className="text-xs text-muted-foreground" data-testid={`text-last-call-date-${lead.id}`}>
+                                  {lastCall.createdAt ? new Date(lastCall.createdAt).toLocaleDateString('pt-BR') : ''}
                                 </span>
                               </div>
                             );
