@@ -6,8 +6,8 @@ import { z } from "zod";
 // Re-export auth models
 export * from "./models/auth";
 
-// Enums
-export const userRoleEnum = pgEnum("user_role", ["admin", "seller"]);
+// Enums - Note: user_role_type already exists in DB with admin/manager/seller values
+export const userRoleEnum = pgEnum("user_role_type", ["admin", "manager", "seller"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "distributed", "negotiating", "won", "lost"]);
 export const businessCategoryEnum = pgEnum("business_category", ["gastronomy", "health_beauty", "services", "retail", "generic"]);
 export const activityTypeEnum = pgEnum("activity_type", ["status_change", "call", "note", "site_generated", "assignment"]);

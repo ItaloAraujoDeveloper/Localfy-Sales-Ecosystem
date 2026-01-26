@@ -319,26 +319,41 @@ export async function registerRoutes(
   app.get("/api/leads/:id/activities", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const lead = await storage.getLead(req.params.id);
+      const lead = await storage.getLead(req.params.id as string);
       
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
       
-      // If user is not admin, verify they own this lead
-      if (!user.isAdmin) {
-        const [seller] = await db
-          .select()
-          .from(sellers)
-          .where(eq(sellers.userId, user.id))
-          .limit(1);
-        
-        if (!seller || lead.sellerId !== seller.id) {
-          return res.status(403).json({ message: "Access denied" });
-        }
+      // Admin can access all leads
+      if (user.isAdmin || user.role === "admin") {
+        const activities = await storage.getLeadActivities(req.params.id as string);
+        return res.json(activities);
       }
       
-      const activities = await storage.getLeadActivities(req.params.id);
+      // Manager can access leads from their sellers
+      if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        if (lead.sellerId && sellerIds.includes(lead.sellerId)) {
+          const activities = await storage.getLeadActivities(req.params.id as string);
+          return res.json(activities);
+        }
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Sellers can only access their own leads
+      const [seller] = await db
+        .select()
+        .from(sellers)
+        .where(eq(sellers.userId, user.id))
+        .limit(1);
+      
+      if (!seller || lead.sellerId !== seller.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const activities = await storage.getLeadActivities(req.params.id as string);
       res.json(activities);
     } catch (error) {
       console.error("Error fetching lead activities:", error);
@@ -352,13 +367,25 @@ export async function registerRoutes(
       const user = req.user as any;
       const { activityType, description, previousStatus, newStatus } = req.body;
       
-      const lead = await storage.getLead(req.params.id);
+      const lead = await storage.getLead(req.params.id as string);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
       
-      // Get seller ID for this user
+      // Admin can access all leads
+      const isAdminUser = user.isAdmin || user.role === "admin";
+      
+      // Manager can access leads from their sellers
+      let hasManagerAccess = false;
+      if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        hasManagerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+      }
+      
+      // Get seller ID for this user (for sellers)
       let sellerId: string | undefined;
+      let hasSellerAccess = false;
       const [seller] = await db
         .select()
         .from(sellers)
@@ -367,15 +394,16 @@ export async function registerRoutes(
       
       if (seller) {
         sellerId = seller.id;
+        hasSellerAccess = lead.sellerId === seller.id;
       }
       
-      // If user is not admin, verify they own this lead
-      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+      // Check access
+      if (!isAdminUser && !hasManagerAccess && !hasSellerAccess) {
         return res.status(403).json({ message: "Access denied" });
       }
       
       const activity = await storage.createLeadActivity({
-        leadId: req.params.id,
+        leadId: req.params.id as string,
         sellerId,
         activityType,
         description,
@@ -404,13 +432,25 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Note explaining the status change is required" });
       }
       
-      const lead = await storage.getLead(req.params.id);
+      const lead = await storage.getLead(req.params.id as string);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
       
+      // Admin can access all leads
+      const isAdminUser = user.isAdmin || user.role === "admin";
+      
+      // Manager can access leads from their sellers
+      let hasManagerAccess = false;
+      if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        hasManagerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+      }
+      
       // Get seller ID for this user
       let sellerId: string | undefined;
+      let hasSellerAccess = false;
       const [seller] = await db
         .select()
         .from(sellers)
@@ -419,21 +459,22 @@ export async function registerRoutes(
       
       if (seller) {
         sellerId = seller.id;
+        hasSellerAccess = lead.sellerId === seller.id;
       }
       
-      // If user is not admin, verify they own this lead
-      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+      // Check access
+      if (!isAdminUser && !hasManagerAccess && !hasSellerAccess) {
         return res.status(403).json({ message: "Access denied" });
       }
       
       const previousStatus = lead.status;
       
       // Update lead status
-      const updatedLead = await storage.updateLead(req.params.id, { status });
+      const updatedLead = await storage.updateLead(req.params.id as string, { status });
       
       // Create activity record
       await storage.createLeadActivity({
-        leadId: req.params.id,
+        leadId: req.params.id as string,
         sellerId,
         activityType: "status_change",
         description: note,
@@ -454,13 +495,25 @@ export async function registerRoutes(
       const user = req.user as any;
       const { note } = req.body;
       
-      const lead = await storage.getLead(req.params.id);
+      const lead = await storage.getLead(req.params.id as string);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
       
+      // Admin can access all leads
+      const isAdminUser = user.isAdmin || user.role === "admin";
+      
+      // Manager can access leads from their sellers
+      let hasManagerAccess = false;
+      if (user.role === "manager") {
+        const managerSellers = await storage.getSellersByManager(user.id);
+        const sellerIds = managerSellers.map(s => s.id);
+        hasManagerAccess = lead.sellerId ? sellerIds.includes(lead.sellerId) : false;
+      }
+      
       // Get seller ID for this user
       let sellerId: string | undefined;
+      let hasSellerAccess = false;
       const [seller] = await db
         .select()
         .from(sellers)
@@ -469,15 +522,16 @@ export async function registerRoutes(
       
       if (seller) {
         sellerId = seller.id;
+        hasSellerAccess = lead.sellerId === seller.id;
       }
       
-      // If user is not admin, verify they own this lead
-      if (!user.isAdmin && (!seller || lead.sellerId !== seller.id)) {
+      // Check access
+      if (!isAdminUser && !hasManagerAccess && !hasSellerAccess) {
         return res.status(403).json({ message: "Access denied" });
       }
       
       const activity = await storage.createLeadActivity({
-        leadId: req.params.id,
+        leadId: req.params.id as string,
         sellerId,
         activityType: "call",
         description: note || "Ligacao realizada",
@@ -676,18 +730,31 @@ Retorne um JSON com:
   app.get("/api/sellers/:id", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const seller = await storage.getSeller(req.params.id);
+      const seller = await storage.getSeller(req.params.id as string);
       
       if (!seller) {
         return res.status(404).json({ message: "Seller not found" });
       }
       
-      // Manager can only access their own sellers
-      if (user.role === "manager" && seller.managerId !== user.id) {
-        return res.status(403).json({ message: "Access denied" });
+      // Admin can access all sellers
+      if (user.isAdmin || user.role === "admin") {
+        return res.json(seller);
       }
       
-      res.json(seller);
+      // Manager can only access their own sellers
+      if (user.role === "manager") {
+        if (seller.managerId !== user.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        return res.json(seller);
+      }
+      
+      // Sellers can only see their own profile
+      if (seller.userId === user.id) {
+        return res.json(seller);
+      }
+      
+      return res.status(403).json({ message: "Access denied" });
     } catch (error) {
       console.error("Error fetching seller:", error);
       res.status(500).json({ message: "Failed to fetch seller" });
@@ -881,6 +948,15 @@ Retorne um JSON com:
   app.delete("/api/managers/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const managerId = req.params.id as string;
+      
+      // First verify this is actually a manager user
+      const [targetUser] = await db.select().from(users).where(eq(users.id, managerId));
+      if (!targetUser) {
+        return res.status(404).json({ message: "Manager not found" });
+      }
+      if (targetUser.role !== "manager") {
+        return res.status(400).json({ message: "User is not a manager" });
+      }
       
       // Check if manager has sellers
       const managerSellers = await storage.getSellersByManager(managerId);
