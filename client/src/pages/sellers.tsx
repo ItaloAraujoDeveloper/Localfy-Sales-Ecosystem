@@ -23,11 +23,20 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-  Loader2
+  Loader2,
+  UserCog
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Seller, Lead } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -46,11 +55,25 @@ interface SellerFormData {
   phone: string;
   commissionRate: string;
   password: string;
+  managerId?: string;
+}
+
+interface Manager {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
+
+  const { data: managers } = useQuery<Manager[]>({
+    queryKey: ["/api/managers"],
+    enabled: isAdmin,
+  });
 
   const form = useForm<SellerFormData>({
     defaultValues: {
@@ -59,6 +82,7 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
       phone: "",
       commissionRate: "10.00",
       password: "",
+      managerId: "",
     },
   });
 
@@ -70,6 +94,7 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
         phone: data.phone,
         commissionRate: data.commissionRate,
         password: data.password,
+        managerId: data.managerId || undefined,
         isActive: true,
       });
     },
@@ -173,6 +198,35 @@ function AddSellerDialog({ onSuccess }: { onSuccess: () => void }) {
                 </FormItem>
               )}
             />
+            {isAdmin && managers && managers.length > 0 && (
+              <FormField
+                control={form.control}
+                name="managerId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gerente Responsavel</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-seller-manager">
+                          <SelectValue placeholder="Selecione um gerente (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {managers.map((manager) => (
+                          <SelectItem key={manager.id} value={manager.id}>
+                            <div className="flex items-center gap-2">
+                              <UserCog className="h-4 w-4" />
+                              {manager.firstName} {manager.lastName} ({manager.email})
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
               <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-seller">
                 {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
