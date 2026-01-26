@@ -254,6 +254,8 @@ function CallModal({
       toast({ title: "Ligacao registrada com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/leads", lead.id, "activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/leads"] });
       resetAndClose();
     },
     onError: () => {
@@ -524,6 +526,41 @@ export default function SellerLeadsPage() {
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
   });
+
+  const { data: allActivities } = useQuery<LeadActivity[]>({
+    queryKey: ["/api/seller/activities"],
+    enabled: !!leads && leads.length > 0,
+  });
+
+  const activityMaps = useMemo(() => {
+    const lastStatusMap = new Map<string, LeadActivity | null>();
+    const lastContactMap = new Map<string, Date | null>();
+    
+    if (!allActivities) return { lastStatusMap, lastContactMap };
+    
+    const sortedActivities = [...allActivities].sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+    
+    for (const activity of sortedActivities) {
+      if (activity.activityType === "status_change" && !lastStatusMap.has(activity.leadId)) {
+        lastStatusMap.set(activity.leadId, activity);
+      }
+      if ((activity.activityType === "call" || activity.activityType === "note") && !lastContactMap.has(activity.leadId)) {
+        lastContactMap.set(activity.leadId, activity.createdAt ? new Date(activity.createdAt) : null);
+      }
+    }
+    
+    return { lastStatusMap, lastContactMap };
+  }, [allActivities]);
+
+  const getLastStatusChange = (leadId: string): LeadActivity | null => {
+    return activityMaps.lastStatusMap.get(leadId) ?? null;
+  };
+
+  const getLastContact = (leadId: string): Date | null => {
+    return activityMaps.lastContactMap.get(leadId) ?? null;
+  };
 
   const cities = useMemo(() => {
     if (!leads) return [];
@@ -810,6 +847,8 @@ export default function SellerLeadsPage() {
                   <TableHead>Localizacao</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Ultimo Status</TableHead>
+                  <TableHead>Ultimo Contato</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead className="text-right">Acoes</TableHead>
                 </TableRow>
@@ -817,7 +856,7 @@ export default function SellerLeadsPage() {
               <TableBody>
                 {filteredLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center">
+                    <TableCell colSpan={9} className="h-32 text-center">
                       <div className="flex flex-col items-center justify-center text-muted-foreground">
                         <Target className="h-8 w-8 mb-2" />
                         <p>Nenhum lead encontrado</p>
@@ -894,6 +933,40 @@ export default function SellerLeadsPage() {
                           <Badge className={statusColors[lead.status || "new"] + " border-0"}>
                             {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS]}
                           </Badge>
+                        </TableCell>
+                        <TableCell data-testid={`cell-last-status-${lead.id}`}>
+                          {(() => {
+                            const lastStatus = getLastStatusChange(lead.id);
+                            if (!lastStatus) return <span className="text-xs text-muted-foreground">-</span>;
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                {lastStatus.newStatus && (
+                                  <Badge className={statusColors[lastStatus.newStatus] + " border-0 text-xs"} data-testid={`badge-last-status-${lead.id}`}>
+                                    {STATUS_LABELS[lastStatus.newStatus as keyof typeof STATUS_LABELS]}
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground" data-testid={`text-last-status-date-${lead.id}`}>
+                                  {lastStatus.createdAt ? new Date(lastStatus.createdAt).toLocaleDateString('pt-BR') : ''}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell data-testid={`cell-last-contact-${lead.id}`}>
+                          {(() => {
+                            const lastContact = getLastContact(lead.id);
+                            if (!lastContact) return <span className="text-xs text-muted-foreground">-</span>;
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm" data-testid={`text-last-contact-date-${lead.id}`}>
+                                  {lastContact.toLocaleDateString('pt-BR')}
+                                </span>
+                                <span className="text-xs text-muted-foreground" data-testid={`text-last-contact-time-${lead.id}`}>
+                                  {lastContact.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <span className="font-medium">
