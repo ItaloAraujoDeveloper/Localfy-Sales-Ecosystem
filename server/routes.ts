@@ -881,14 +881,20 @@ Retorne um JSON com:
   app.get("/api/managers", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const managers = await db.select().from(users).where(eq(users.role, "manager"));
-      res.json(managers.map(m => ({
-        id: m.id,
-        email: m.email,
-        firstName: m.firstName,
-        lastName: m.lastName,
-        role: m.role,
-        createdAt: m.createdAt,
-      })));
+      const allSellers = await storage.getSellers();
+      
+      res.json(managers.map(m => {
+        const managerSellers = allSellers.filter(s => s.managerId === m.id);
+        return {
+          id: m.id,
+          email: m.email,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          role: m.role,
+          createdAt: m.createdAt,
+          sellerCount: managerSellers.length,
+        };
+      }));
     } catch (error) {
       console.error("Error fetching managers:", error);
       res.status(500).json({ message: "Failed to fetch managers" });
