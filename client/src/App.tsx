@@ -19,6 +19,7 @@ import RadarPage from "@/pages/radar";
 import PartnerPage from "@/pages/partner";
 import SellersPage from "@/pages/sellers";
 import LeadsPage from "@/pages/leads";
+import ManagersPage from "@/pages/managers";
 import PreviewPage from "@/pages/preview";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -92,8 +93,8 @@ function Router() {
     return <LandingPage />;
   }
 
-  // Dashboard is admin-only
-  const adminOnlyPages = ["/", "/dashboard"];
+  // Dashboard and Managers are admin-only
+  const adminOnlyPages = ["/", "/dashboard", "/managers"];
   if (!isAdmin && adminOnlyPages.includes(location)) {
     const redirectTo = isManager ? "/radar" : "/partner";
     return <SafeRedirect to={redirectTo} />;
@@ -117,6 +118,7 @@ function Router() {
         <Route path="/leads" component={LeadsPage} />
         <Route path="/partner" component={PartnerPage} />
         <Route path="/sellers" component={SellersPage} />
+        <Route path="/managers" component={ManagersPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

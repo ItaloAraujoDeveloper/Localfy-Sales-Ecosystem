@@ -8,6 +8,7 @@ import {
   LogOut,
   Settings,
   TableProperties,
+  UserCog,
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,6 +50,11 @@ const adminMenuItems = [
     title: "Vendedores",
     url: "/sellers",
     icon: Users,
+  },
+  {
+    title: "Gerentes",
+    url: "/managers",
+    icon: UserCog,
   },
 ];
 
