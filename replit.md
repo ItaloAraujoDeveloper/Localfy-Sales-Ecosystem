@@ -189,4 +189,18 @@ The system has three user roles with hierarchical access:
 - Non-admin/non-manager users are automatically redirected to `/partner`
 - Admin-only pages: Dashboard
 - Manager and Admin pages: Lead Radar, Controle de Leads, Vendedores, CRM Kanban
-- Sellers only see: Partner App (Minha Carteira)
+- Sellers see: Meus Leads, CRM Kanban, Minha Carteira
+
+### Seller Leads Page (January 2026)
+The `/my-leads` page provides sellers with a professional interface for managing their leads:
+
+**Features:**
+- **Stats Dashboard**: Total leads, In negotiation, Won, Lost counts with icons
+- **Advanced Filters**: Search by text, status, category, city, and neighborhood
+- **Professional Table View**: Company, Contact, Location, Category, Status, Value columns
+- **Quick Actions**: WhatsApp, Call registration, History view, Status changes
+- **Call Registration Modal**: 6 predefined results with Lucide icons, optional notes, optional status change
+- **History Timeline**: Visual timeline with activity type icons, status changes, descriptions
+- **Status Change Modal**: Required notes when changing lead status
+
+**Navigation**: Available in sidebar as "Meus Leads" for sellers (and for admin/managers in the "Vendedor" section)

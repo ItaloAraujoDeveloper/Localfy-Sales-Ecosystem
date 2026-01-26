@@ -9,6 +9,7 @@ import {
   Settings,
   TableProperties,
   UserCog,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
@@ -82,6 +83,11 @@ const managerMenuItems = [
 ];
 
 const sellerMenuItems = [
+  {
+    title: "Meus Leads",
+    url: "/my-leads",
+    icon: Target,
+  },
   {
     title: "CRM Kanban",
     url: "/crm",

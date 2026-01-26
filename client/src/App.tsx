@@ -21,6 +21,7 @@ import SellersPage from "@/pages/sellers";
 import LeadsPage from "@/pages/leads";
 import ManagersPage from "@/pages/managers";
 import PreviewPage from "@/pages/preview";
+import SellerLeadsPage from "@/pages/seller-leads";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -117,6 +118,7 @@ function Router() {
         <Route path="/radar" component={RadarPage} />
         <Route path="/leads" component={LeadsPage} />
         <Route path="/partner" component={PartnerPage} />
+        <Route path="/my-leads" component={SellerLeadsPage} />
         <Route path="/sellers" component={SellersPage} />
         <Route path="/managers" component={ManagersPage} />
         <Route component={NotFound} />
