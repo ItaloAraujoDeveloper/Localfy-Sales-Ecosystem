@@ -908,7 +908,7 @@ Retorne um JSON com:
       const data = managerSchema.parse(req.body);
       
       // Check if email exists
-      const existing = await storage.getUserByEmail(data.email);
+      const [existing] = await db.select().from(users).where(eq(users.email, data.email));
       if (existing) {
         return res.status(400).json({ message: "Email already registered" });
       }
