@@ -208,3 +208,16 @@ The `/my-leads` page provides sellers with a professional interface for managing
 - **Status Change Modal**: Required notes when changing lead status
 
 **Navigation**: Available in sidebar as "Meus Leads" for sellers (and for admin/managers in the "Vendedor" section)
+
+## Future Features (Planned)
+
+### Twilio VoIP Integration
+- **Status**: Pending - User wants to implement later
+- **Purpose**: Allow sellers to make calls directly from the platform without using their personal phones
+- **Features planned**:
+  - Click-to-call from lead cards and tables
+  - Browser-based calling (WebRTC)
+  - Call recording for training and quality
+  - Automatic call logging in lead activities
+  - Call duration tracking
+- **Integration**: Use Replit's Twilio connector (connector:ccfg_twilio_01K69QJTED9YTJFE2SJ7E4SY08)
