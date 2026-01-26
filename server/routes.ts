@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin, isAdminOrManager } from "./auth";
-import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, users, sellers } from "@shared/schema";
+import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, type Lead, users, sellers } from "@shared/schema";
 import { z } from "zod";
 import { generateImageBuffer } from "./replit_integrations/image/client";
 import bcrypt from "bcryptjs";
@@ -149,17 +149,17 @@ export async function registerRoutes(
   app.get("/api/leads", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      let leads = await storage.getLeads();
+      let leads: Lead[];
       
       // Admin sees all leads
       if (user.isAdmin || user.role === "admin") {
-        // No filtering needed
+        leads = await storage.getLeads();
       }
       // Manager sees leads assigned to their sellers
       else if (user.role === "manager") {
         const managerSellers = await storage.getSellersByManager(user.id);
         const sellerIds = managerSellers.map(s => s.id);
-        leads = leads.filter(lead => lead.sellerId && sellerIds.includes(lead.sellerId));
+        leads = await storage.getLeadsBySellerIds(sellerIds);
       }
       // Seller sees only their own leads
       else {
@@ -170,7 +170,7 @@ export async function registerRoutes(
           .limit(1);
         
         if (seller) {
-          leads = leads.filter(lead => lead.sellerId === seller.id);
+          leads = await storage.getLeadsBySeller(seller.id);
         } else {
           leads = [];
         }

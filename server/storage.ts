@@ -21,6 +21,8 @@ export interface IStorage {
 
   // Leads
   getLeads(): Promise<Lead[]>;
+  getLeadsBySeller(sellerId: string): Promise<Lead[]>;
+  getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
   getLeadBySlug(slug: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
@@ -93,6 +95,15 @@ export class DatabaseStorage implements IStorage {
   // Leads
   async getLeads(): Promise<Lead[]> {
     return await db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadsBySeller(sellerId: string): Promise<Lead[]> {
+    return await db.select().from(leads).where(eq(leads.sellerId, sellerId)).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]> {
+    if (sellerIds.length === 0) return [];
+    return await db.select().from(leads).where(inArray(leads.sellerId, sellerIds)).orderBy(desc(leads.createdAt));
   }
 
   async getLead(id: string): Promise<Lead | undefined> {
