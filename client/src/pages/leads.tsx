@@ -66,7 +66,7 @@ const STATUS_COLORS: Record<LeadStatus, string> = {
 
 export default function LeadsPage() {
   const { toast } = useToast();
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isManager, isAdminOrManager, isLoading: authLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
@@ -305,11 +305,11 @@ export default function LeadsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdminOrManager) {
     return (
       <div className="p-6 flex flex-col items-center justify-center h-64 gap-4">
         <ShieldAlert className="h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">Acesso restrito a administradores</p>
+        <p className="text-muted-foreground">Acesso restrito a administradores e gerentes</p>
       </div>
     );
   }
@@ -488,7 +488,7 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {isAdmin && (
+                        {isAdminOrManager && (
                           <Button
                             size="icon"
                             variant="ghost"
