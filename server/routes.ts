@@ -1007,6 +1007,52 @@ Retorne um JSON com:
     }
   });
 
+  // ========== SELLER DASHBOARD ==========
+
+  // Get seller's own leads
+  app.get("/api/seller/leads", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      
+      // Find seller record linked to this user (efficient single query)
+      const seller = await storage.getSellerByUserId(user.id);
+      
+      if (!seller) {
+        // User is not a seller (admin/manager) - return empty array
+        return res.json([]);
+      }
+      
+      const leads = await storage.getLeadsBySeller(seller.id);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching seller leads:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  // Get seller's activities (for all their leads)
+  app.get("/api/seller/activities", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      
+      // Find seller record linked to this user (efficient single query)
+      const seller = await storage.getSellerByUserId(user.id);
+      
+      if (!seller) {
+        // User is not a seller (admin/manager) - return empty array
+        return res.json([]);
+      }
+      
+      const leads = await storage.getLeadsBySeller(seller.id);
+      const leadIds = leads.map(l => l.id);
+      const activities = await storage.getActivitiesForLeads(leadIds);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching seller activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
   // ========== TEMPLATES ==========
 
   // Get all templates

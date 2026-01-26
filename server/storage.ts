@@ -23,6 +23,7 @@ export interface IStorage {
   getLeads(): Promise<Lead[]>;
   getLeadsBySeller(sellerId: string): Promise<Lead[]>;
   getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]>;
+  getSellerByUserId(userId: string): Promise<Seller | undefined>;
   getLeadsByManagerAccess(userId: string, sellerIds: string[]): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
   getLeadBySlug(slug: string): Promise<Lead | undefined>;
@@ -42,6 +43,7 @@ export interface IStorage {
 
   // Lead Activities (CRM History)
   getLeadActivities(leadId: string): Promise<LeadActivity[]>;
+  getActivitiesForLeads(leadIds: string[]): Promise<LeadActivity[]>;
   createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity>;
 }
 
@@ -105,6 +107,11 @@ export class DatabaseStorage implements IStorage {
   async getLeadsBySellerIds(sellerIds: string[]): Promise<Lead[]> {
     if (sellerIds.length === 0) return [];
     return await db.select().from(leads).where(inArray(leads.sellerId, sellerIds)).orderBy(desc(leads.createdAt));
+  }
+
+  async getSellerByUserId(userId: string): Promise<Seller | undefined> {
+    const [seller] = await db.select().from(sellers).where(eq(sellers.userId, userId));
+    return seller;
   }
 
   async getLeadsByManagerAccess(userId: string, sellerIds: string[]): Promise<Lead[]> {
@@ -215,6 +222,15 @@ export class DatabaseStorage implements IStorage {
   async createLeadActivity(data: InsertLeadActivity): Promise<LeadActivity> {
     const [activity] = await db.insert(leadActivities).values(data).returning();
     return activity;
+  }
+
+  async getActivitiesForLeads(leadIds: string[]): Promise<LeadActivity[]> {
+    if (leadIds.length === 0) return [];
+    return await db
+      .select()
+      .from(leadActivities)
+      .where(inArray(leadActivities.leadId, leadIds))
+      .orderBy(desc(leadActivities.createdAt));
   }
 }
 

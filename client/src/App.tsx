@@ -22,6 +22,7 @@ import LeadsPage from "@/pages/leads";
 import ManagersPage from "@/pages/managers";
 import PreviewPage from "@/pages/preview";
 import SellerLeadsPage from "@/pages/seller-leads";
+import SellerDashboardPage from "@/pages/seller-dashboard";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -78,7 +79,7 @@ function Router() {
   // Login page
   if (location === "/login") {
     if (user) {
-      const redirectTo = isAdmin ? "/dashboard" : isManager ? "/radar" : "/partner";
+      const redirectTo = isAdmin ? "/dashboard" : isManager ? "/radar" : "/seller-dashboard";
       return <SafeRedirect to={redirectTo} />;
     }
     return <LoginPage />;
@@ -97,15 +98,15 @@ function Router() {
   // Dashboard and Managers are admin-only
   const adminOnlyPages = ["/", "/dashboard", "/managers"];
   if (!isAdmin && adminOnlyPages.includes(location)) {
-    const redirectTo = isManager ? "/radar" : "/partner";
+    const redirectTo = isManager ? "/radar" : "/seller-dashboard";
     return <SafeRedirect to={redirectTo} />;
   }
 
   // Manager can access: /radar, /leads, /sellers, /crm
-  // Seller can only access: /crm, /partner
+  // Seller can only access: /crm, /my-leads, /seller-dashboard
   const managerPages = ["/radar", "/leads", "/sellers"];
   if (!isAdmin && !isManager && managerPages.includes(location)) {
-    return <SafeRedirect to="/partner" />;
+    return <SafeRedirect to="/seller-dashboard" />;
   }
 
   // Authenticated - show app
@@ -119,6 +120,7 @@ function Router() {
         <Route path="/leads" component={LeadsPage} />
         <Route path="/partner" component={PartnerPage} />
         <Route path="/my-leads" component={SellerLeadsPage} />
+        <Route path="/seller-dashboard" component={SellerDashboardPage} />
         <Route path="/sellers" component={SellersPage} />
         <Route path="/managers" component={ManagersPage} />
         <Route component={NotFound} />
