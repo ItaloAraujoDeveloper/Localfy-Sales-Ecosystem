@@ -75,7 +75,7 @@ export default function LeadsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [generatingSiteLead, setGeneratingSiteLead] = useState<Lead | null>(null);
   const [sitePrompt, setSitePrompt] = useState("");
-  const [selectedBusinessType, setSelectedBusinessType] = useState<string>("");
+  const [selectedBusinessType, setSelectedBusinessType] = useState<string>("auto");
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
   
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -183,7 +183,7 @@ export default function LeadsPage() {
   const handleGenerateSite = (lead: Lead) => {
     setGeneratingSiteLead(lead);
     setSitePrompt("");
-    setSelectedBusinessType((lead as any).businessType || "");
+    setSelectedBusinessType((lead as any).businessType || "auto");
     setIsSiteDialogOpen(true);
   };
 
@@ -192,7 +192,7 @@ export default function LeadsPage() {
     generateSiteMutation.mutate({
       id: generatingSiteLead.id,
       customPrompt: sitePrompt.trim() || undefined,
-      businessType: selectedBusinessType || undefined,
+      businessType: selectedBusinessType && selectedBusinessType !== "auto" ? selectedBusinessType : undefined,
     });
   };
 
@@ -709,7 +709,7 @@ export default function LeadsPage() {
         if (!open) {
           setGeneratingSiteLead(null);
           setSitePrompt("");
-          setSelectedBusinessType("");
+          setSelectedBusinessType("auto");
         }
       }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -737,7 +737,7 @@ export default function LeadsPage() {
                     <SelectValue placeholder="Detectar automaticamente pelo nome" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
-                    <SelectItem value="">Detectar automaticamente</SelectItem>
+                    <SelectItem value="auto">Detectar automaticamente</SelectItem>
                     {businessCategories?.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         <span className="flex items-center gap-2">
