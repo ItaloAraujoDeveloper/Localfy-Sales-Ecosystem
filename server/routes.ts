@@ -176,7 +176,15 @@ export async function registerRoutes(
         }
       }
       
-      res.json(leads);
+      // Remove heavy fields (productImages, heroImageUrl with base64) from list response
+      // to prevent payload size issues with many leads
+      const lightLeads = leads.map(lead => ({
+        ...lead,
+        productImages: lead.productImages ? ["[images]"] : null, // Indicate images exist but don't send data
+        heroImageUrl: lead.heroImageUrl?.startsWith("data:") ? "[base64]" : lead.heroImageUrl,
+      }));
+      
+      res.json(lightLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ message: "Failed to fetch leads" });
@@ -1023,7 +1031,15 @@ Retorne um JSON com:
       }
       
       const leads = await storage.getLeadsBySeller(seller.id);
-      res.json(leads);
+      
+      // Remove heavy fields from list response to prevent payload size issues
+      const lightLeads = leads.map(lead => ({
+        ...lead,
+        productImages: lead.productImages ? ["[images]"] : null,
+        heroImageUrl: lead.heroImageUrl?.startsWith("data:") ? "[base64]" : lead.heroImageUrl,
+      }));
+      
+      res.json(lightLeads);
     } catch (error) {
       console.error("Error fetching seller leads:", error);
       res.status(500).json({ message: "Failed to fetch leads" });
