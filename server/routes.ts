@@ -571,59 +571,66 @@ export async function registerRoutes(
   app.post("/api/leads/:id/generate-site", isAuthenticated, isAdminOrManager, async (req, res) => {
     try {
       const { id } = req.params;
-      const { customPrompt } = req.body;
+      const { customPrompt, businessType: requestedBusinessType } = req.body;
 
       const lead = await storage.getLead(id);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
 
-      // Detect business type from name
-      const businessName = lead.businessName.toLowerCase();
-      let businessType = "empresa";
-      let category = lead.category || "generic";
+      // Import business categories configuration
+      const { businessCategories, getBusinessCategory } = await import("@shared/businessCategories");
       
-      // Fitness/Academia detection
-      if (businessName.includes("academia") || businessName.includes("fitness") || 
-          businessName.includes("gym") || businessName.includes("crossfit") ||
-          businessName.includes("musculacao") || businessName.includes("pilates")) {
-        businessType = "academia";
-        category = "services";
+      // Detect business type from name or use requested type
+      const businessName = lead.businessName.toLowerCase();
+      let detectedBusinessType = requestedBusinessType || lead.businessType || "restaurant";
+      
+      // Auto-detection patterns
+      const detectionPatterns: Record<string, string[]> = {
+        church: ["igreja", "capela", "paroquia", "templo", "ministerio", "assembleia", "batista", "catolica", "evangelica"],
+        candy_store: ["doces", "doceria", "brigadeiro", "confeitaria", "chocolate", "bombom", "trufa"],
+        clothing_store: ["roupa", "moda", "vestuario", "boutique", "fashion", "loja de", "confeccao", "jeans"],
+        bar: ["bar", "pub", "choperia", "boteco", "cervejaria", "drinks"],
+        nail_salon: ["manicure", "pedicure", "nail", "unhas", "esmalte", "unha"],
+        massage: ["massagem", "massoterapia", "relaxamento", "spa", "shiatsu", "quick massage"],
+        concert_venue: ["show", "casa de show", "musica ao vivo", "eventos", "balada", "danceteria", "boate"],
+        restaurant: ["restaurante", "bistr", "gastrobar", "rodizio", "buffet", "self service"],
+        burger_joint: ["hamburguer", "burger", "lanche", "lanches", "lanchonete", "x-tudo", "hot dog"],
+        bakery: ["padaria", "panificadora", "confeitaria", "pao", "bolo", "paes"],
+        gym: ["academia", "fitness", "musculacao", "crossfit", "pilates", "funcional", "treino", "gym"],
+        beauty_salon: ["salao", "cabelereiro", "cabeleireiro", "beleza", "penteado", "corte", "tintura"],
+        barbershop: ["barbearia", "barber", "barbeiro"],
+        pet_shop: ["pet", "petshop", "animal", "veterinaria", "vet", "cachorro", "gato", "banho e tosa"],
+        dental_clinic: ["dentista", "odonto", "odontologia", "dental", "clinica dental", "ortodontia", "sorriso"],
+        pharmacy: ["farmacia", "drogaria", "medicamento", "remedio"],
+        car_wash: ["lava", "lava jato", "lava rapido", "lavagem", "polimento"],
+        auto_repair: ["oficina", "mecanica", "mecanico", "funilaria", "borracharia", "pneu"],
+        real_estate: ["imobiliaria", "imoveis", "corretor", "aluguel", "venda de casas"],
+        law_office: ["advocacia", "advogado", "escritorio de advocacia", "juridico"],
+        florist: ["floricultura", "flores", "floricultora", "arranjos", "buque"],
+        photography: ["foto", "fotografia", "estudio fotografico", "ensaio", "fotografo"],
+        tattoo_studio: ["tatuagem", "tattoo", "tatoo", "piercing", "body art"],
+        daycare: ["creche", "escola infantil", "bercario", "educacao infantil", "jardim de infancia"],
+        pizza: ["pizza", "pizzaria", "pizzas"],
+        acai: ["acai", "acaiteria", "vitamina", "smoothie"],
+      };
+      
+      // Auto-detect if not specified
+      if (!requestedBusinessType) {
+        for (const [type, patterns] of Object.entries(detectionPatterns)) {
+          if (patterns.some(p => businessName.includes(p))) {
+            detectedBusinessType = type;
+            break;
+          }
+        }
       }
-      // Salon/Beauty detection
-      else if (businessName.includes("salao") || businessName.includes("salon") ||
-               businessName.includes("barbearia") || businessName.includes("cabelereiro") ||
-               businessName.includes("estetica") || businessName.includes("beleza") ||
-               businessName.includes("spa") || businessName.includes("nails") ||
-               businessName.includes("manicure")) {
-        businessType = "salao";
-        category = "health_beauty";
+      
+      // Get category configuration
+      const categoryConfig = getBusinessCategory(detectedBusinessType);
+      if (!categoryConfig) {
+        detectedBusinessType = "restaurant"; // fallback
       }
-      // Restaurant/Food detection
-      else if (businessName.includes("restaurante") || businessName.includes("lanchonete") ||
-               businessName.includes("pizzaria") || businessName.includes("hamburguer") ||
-               businessName.includes("burger") || businessName.includes("lanches") ||
-               businessName.includes("cafe") || businessName.includes("padaria") ||
-               businessName.includes("bar") || businessName.includes("churrascaria")) {
-        businessType = "restaurante";
-        category = "gastronomy";
-      }
-      // Store/Retail detection
-      else if (businessName.includes("loja") || businessName.includes("store") ||
-               businessName.includes("boutique") || businessName.includes("mercado") ||
-               businessName.includes("supermercado") || businessName.includes("farmacia") ||
-               businessName.includes("pet") || businessName.includes("otica")) {
-        businessType = "loja";
-        category = "retail";
-      }
-      // Services detection
-      else if (businessName.includes("consultoria") || businessName.includes("advocacia") ||
-               businessName.includes("contabilidade") || businessName.includes("clinica") ||
-               businessName.includes("medico") || businessName.includes("dentista") ||
-               businessName.includes("oficina") || businessName.includes("mecanica")) {
-        businessType = "servicos";
-        category = "services";
-      }
+      const config = getBusinessCategory(detectedBusinessType)!;
 
       // Generate content using OpenAI
       const { openai } = await import("./replit_integrations/image/client");
@@ -631,29 +638,72 @@ export async function registerRoutes(
       const systemPrompt = `Voce e um especialista em marketing digital e criacao de sites para pequenos negocios brasileiros.
 Gere conteudo persuasivo e profissional em portugues brasileiro.
 Seja criativo mas realista, como se o site fosse real.
-Use linguagem apropriada para o tipo de negocio.`;
+Use linguagem apropriada para o tipo de negocio: ${config.labelPt}.
+Tom de comunicacao: ${config.tone === "spiritual" ? "acolhedor e inspirador" : 
+  config.tone === "luxury" ? "elegante e sofisticado" :
+  config.tone === "fun" ? "descontraido e animado" :
+  config.tone === "relaxing" ? "calmo e tranquilizador" :
+  config.tone === "energetic" ? "motivador e energico" :
+  config.tone === "serious" ? "formal e profissional" :
+  "amigavel e profissional"}.
+Palavras-chave do segmento: ${config.keywords.join(", ")}.`;
 
-      const userPrompt = customPrompt ? 
-        `Gere conteudo para o site de "${lead.businessName}", um(a) ${businessType} localizado em ${lead.city || lead.address || "cidade"}. 
-Instrucoes adicionais: ${customPrompt}
+      // Build section-specific prompts based on category
+      const sectionsToGenerate = config.sections.filter(s => s.required || Math.random() > 0.3);
+      const sectionTypes = sectionsToGenerate.map(s => s.type);
+      
+      const userPrompt = `Gere conteudo COMPLETO para o site de "${lead.businessName}", um(a) ${config.labelPt} localizado em ${lead.city || lead.address || "sua cidade"}.
+${customPrompt ? `Instrucoes adicionais: ${customPrompt}` : ""}
 
-Retorne um JSON com:
+O site tera as seguintes secoes: ${sectionsToGenerate.map(s => s.title).join(", ")}.
+
+Retorne um JSON com TODOS os campos abaixo (use dados ficticios mas realistas):
 {
-  "headline": "frase de impacto principal (max 10 palavras)",
-  "description": "descricao do negocio (2-3 frases)",
-  "services": ["nome servico 1", "nome servico 2", "nome servico 3"],
-  "serviceDescriptions": ["descricao servico 1 (1 frase)", "descricao servico 2", "descricao servico 3"],
-  "imagePrompt": "prompt em ingles para gerar imagens profissionais deste negocio"
-}` :
-        `Gere conteudo para o site de "${lead.businessName}", um(a) ${businessType} localizado em ${lead.city || lead.address || "cidade"}.
-
-Retorne um JSON com:
-{
-  "headline": "frase de impacto principal (max 10 palavras)",
-  "description": "descricao do negocio (2-3 frases)",
-  "services": ["nome servico/produto 1", "nome servico/produto 2", "nome servico/produto 3"],
-  "serviceDescriptions": ["descricao servico 1 (1 frase)", "descricao servico 2", "descricao servico 3"],
-  "imagePrompt": "prompt em ingles para gerar imagens profissionais deste ${businessType}"
+  "headline": "frase de impacto principal (max 10 palavras) para ${config.labelPt}",
+  "description": "descricao envolvente do negocio (2-3 frases)",
+  "about": "historia e missao da empresa (3-4 frases)",
+  "services": ["${config.defaultServices[0]}", "${config.defaultServices[1]}", "${config.defaultServices[2]}", "${config.defaultServices[3] || config.defaultServices[0]}"],
+  "serviceDescriptions": ["descricao servico 1", "descricao servico 2", "descricao servico 3", "descricao servico 4"],
+  "features": [
+    {"title": "Diferencial 1", "description": "Por que somos unicos"},
+    {"title": "Diferencial 2", "description": "Outro ponto forte"},
+    {"title": "Diferencial 3", "description": "Mais um beneficio"}
+  ],
+  "schedule": {
+    "weekdays": "Segunda a Sexta: 08:00 - 18:00",
+    "saturday": "Sabado: 09:00 - 14:00",
+    "sunday": "Domingo: Fechado",
+    "note": "Horarios especiais em feriados"
+  },
+  "testimonials": [
+    {"name": "Nome Cliente 1", "text": "Depoimento positivo curto", "rating": 5},
+    {"name": "Nome Cliente 2", "text": "Outro depoimento", "rating": 5},
+    {"name": "Nome Cliente 3", "text": "Mais um depoimento", "rating": 4}
+  ],
+  ${sectionTypes.includes("menu") ? `"menu": [
+    {"name": "Item 1", "description": "Descricao breve", "price": "R$ XX,XX"},
+    {"name": "Item 2", "description": "Descricao breve", "price": "R$ XX,XX"},
+    {"name": "Item 3", "description": "Descricao breve", "price": "R$ XX,XX"}
+  ],` : ""}
+  ${sectionTypes.includes("events") ? `"events": [
+    {"title": "Evento 1", "date": "Data proxima", "description": "Detalhes"},
+    {"title": "Evento 2", "date": "Outra data", "description": "Detalhes"}
+  ],` : ""}
+  ${sectionTypes.includes("pricing") ? `"pricing": [
+    {"name": "Plano/Pacote Basico", "price": "R$ XX,XX", "features": ["item 1", "item 2"]},
+    {"name": "Plano/Pacote Premium", "price": "R$ XX,XX", "features": ["item 1", "item 2", "item 3"]}
+  ],` : ""}
+  ${sectionTypes.includes("team") ? `"team": [
+    {"name": "Profissional 1", "role": "Cargo", "description": "Breve bio"},
+    {"name": "Profissional 2", "role": "Cargo", "description": "Breve bio"}
+  ],` : ""}
+  ${sectionTypes.includes("faq") ? `"faq": [
+    {"question": "Pergunta frequente 1?", "answer": "Resposta"},
+    {"question": "Pergunta frequente 2?", "answer": "Resposta"},
+    {"question": "Pergunta frequente 3?", "answer": "Resposta"}
+  ],` : ""}
+  "ctas": ${JSON.stringify(config.defaultCTAs)},
+  "imagePrompt": "prompt em ingles para gerar imagens: ${config.imageStyle}"
 }`;
 
       const response = await openai.chat.completions.create({
@@ -663,46 +713,65 @@ Retorne um JSON com:
           { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 1000,
+        max_tokens: 2500,
       });
 
       const content = JSON.parse(response.choices[0]?.message?.content || "{}");
-      const imagePromptText = content.imagePrompt || `Professional ${businessType} photography in Brazil`;
+      const imagePromptText = content.imagePrompt || config.imageStyle;
 
       // Generate all images in parallel for speed
       let heroImageUrl: string | undefined;
       let productImages: string[] | undefined;
+      let galleryImages: string[] | undefined;
       
       try {
-        const heroPrompt = `Professional business photo for ${lead.businessName}, a ${businessType} in Brazil: ${imagePromptText}. High quality, commercial photography style, well-lit, modern and inviting atmosphere.`;
+        const heroPrompt = `${config.imageStyle}. Professional business photo for ${lead.businessName}. High quality commercial photography, well-lit, modern, inviting. Brazilian business.`;
         
-        const productPrompts = [
-          `Product or service photo 1 for ${businessType}: ${imagePromptText}. Professional commercial photography, clean background.`,
-          `Product or service photo 2 for ${businessType}: ${imagePromptText}. Professional product shot, high quality.`,
-          `Product or service photo 3 for ${businessType}: ${imagePromptText}. Service or product detail shot, professional lighting.`,
-        ];
+        const productPrompts = (content.services || config.defaultServices).slice(0, 4).map((service: string, i: number) => 
+          `Professional photo representing ${service} for a ${config.labelPt}: ${imagePromptText}. Commercial photography, clean composition, high quality.`
+        );
 
         // Generate all images in parallel
-        const [heroBuffer, ...productBuffers] = await Promise.all([
+        const imageBuffers = await Promise.all([
           generateImageBuffer(heroPrompt, "1024x1024"),
-          ...productPrompts.map(prompt => generateImageBuffer(prompt, "1024x1024"))
+          ...productPrompts.map((prompt: string) => generateImageBuffer(prompt, "1024x1024"))
         ]);
 
-        heroImageUrl = `data:image/png;base64,${heroBuffer.toString("base64")}`;
-        productImages = productBuffers.map(buffer => `data:image/png;base64,${buffer.toString("base64")}`);
+        heroImageUrl = `data:image/png;base64,${imageBuffers[0].toString("base64")}`;
+        productImages = imageBuffers.slice(1).map(buffer => `data:image/png;base64,${buffer.toString("base64")}`);
       } catch (imageError) {
-        console.error("Error generating images (will use stock images):", imageError);
+        console.error("Error generating images:", imageError);
       }
+
+      // Prepare JSON fields
+      const scheduleJson = content.schedule ? JSON.stringify(content.schedule) : null;
+      const testimonialsJson = content.testimonials ? JSON.stringify(content.testimonials) : null;
+      const featuresJson = content.features ? JSON.stringify(content.features) : null;
+      const menuJson = content.menu ? JSON.stringify(content.menu) : null;
+      const eventsJson = content.events ? JSON.stringify(content.events) : null;
+      const pricingJson = content.pricing ? JSON.stringify(content.pricing) : null;
+      const teamJson = content.team ? JSON.stringify(content.team) : null;
+      const faqJson = content.faq ? JSON.stringify(content.faq) : null;
 
       // Update lead with generated content and images
       const updatedLead = await storage.updateLead(id, {
-        businessType,
-        category: category as any,
+        businessType: detectedBusinessType,
         siteGenerated: true,
         siteHeadline: content.headline || `Bem-vindo a ${lead.businessName}`,
         siteDescription: content.description || "Qualidade e excelencia em cada servico.",
-        siteServices: content.services || ["Servico 1", "Servico 2", "Servico 3"],
-        siteServiceDescriptions: content.serviceDescriptions || ["Descricao 1", "Descricao 2", "Descricao 3"],
+        siteServices: content.services || config.defaultServices,
+        siteServiceDescriptions: content.serviceDescriptions || config.defaultServices.map(() => "Servico de qualidade"),
+        siteAbout: content.about || null,
+        siteSchedule: scheduleJson,
+        siteTestimonials: testimonialsJson,
+        siteFeatures: featuresJson,
+        siteMenu: menuJson,
+        siteEvents: eventsJson,
+        sitePricing: pricingJson,
+        siteTeam: teamJson,
+        siteFAQ: faqJson,
+        sitePrimaryColor: config.primaryColor,
+        siteSecondaryColor: config.secondaryColor,
         imagePrompt: imagePromptText,
         ...(heroImageUrl && { heroImageUrl }),
         ...(productImages && { productImages }),
@@ -710,8 +779,13 @@ Retorne um JSON com:
 
       res.json({
         success: true,
-        businessType,
-        category,
+        businessType: detectedBusinessType,
+        categoryConfig: {
+          id: config.id,
+          label: config.labelPt,
+          primaryColor: config.primaryColor,
+          sections: sectionsToGenerate,
+        },
         content,
         imagesGenerated: !!heroImageUrl,
         lead: updatedLead,
@@ -1105,6 +1179,31 @@ Retorne um JSON com:
     } catch (error) {
       console.error("Error changing password:", error);
       res.status(500).json({ message: "Erro ao alterar senha" });
+    }
+  });
+
+  // ========== BUSINESS CATEGORIES ==========
+
+  // Get all business categories configuration
+  app.get("/api/business-categories", async (req, res) => {
+    try {
+      const { businessCategories } = await import("@shared/businessCategories");
+      res.json(businessCategories.map(cat => ({
+        id: cat.id,
+        label: cat.label,
+        labelPt: cat.labelPt,
+        icon: cat.icon,
+        primaryColor: cat.primaryColor,
+        secondaryColor: cat.secondaryColor,
+        gradient: cat.gradient,
+        tone: cat.tone,
+        sections: cat.sections,
+        defaultServices: cat.defaultServices,
+        defaultCTAs: cat.defaultCTAs,
+      })));
+    } catch (error) {
+      console.error("Error fetching business categories:", error);
+      res.status(500).json({ message: "Failed to fetch business categories" });
     }
   });
 

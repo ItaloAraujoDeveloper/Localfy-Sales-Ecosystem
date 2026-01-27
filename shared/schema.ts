@@ -33,7 +33,7 @@ export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   businessName: text("business_name").notNull(),
   category: businessCategoryEnum("category").default("generic"),
-  businessType: text("business_type"),
+  businessType: text("business_type"), // New: specific business type (church, bar, nail_salon, etc.)
   address: text("address"),
   city: text("city"),
   phone: text("phone"),
@@ -54,6 +54,19 @@ export const leads = pgTable("leads", {
   siteDescription: text("site_description"),
   siteServices: text("site_services").array(),
   siteServiceDescriptions: text("site_service_descriptions").array(),
+  // New enhanced site generation fields (JSON stored as text)
+  siteSchedule: text("site_schedule"), // JSON: business hours, events schedule
+  siteTestimonials: text("site_testimonials"), // JSON: array of testimonials with name, text, rating
+  siteFeatures: text("site_features"), // JSON: array of features/benefits
+  siteAbout: text("site_about"), // Text: about the business
+  siteMenu: text("site_menu"), // JSON: menu items for restaurants/bars
+  siteEvents: text("site_events"), // JSON: upcoming events
+  sitePricing: text("site_pricing"), // JSON: pricing table/packages
+  siteTeam: text("site_team"), // JSON: team members
+  siteFAQ: text("site_faq"), // JSON: frequently asked questions
+  siteGallery: text("site_gallery").array(), // Array of additional gallery image URLs
+  sitePrimaryColor: text("site_primary_color"), // Primary color for the site theme
+  siteSecondaryColor: text("site_secondary_color"), // Secondary color
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

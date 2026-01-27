@@ -75,6 +75,7 @@ export default function LeadsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [generatingSiteLead, setGeneratingSiteLead] = useState<Lead | null>(null);
   const [sitePrompt, setSitePrompt] = useState("");
+  const [selectedBusinessType, setSelectedBusinessType] = useState<string>("");
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
   
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -89,6 +90,17 @@ export default function LeadsPage() {
 
   const { data: sellers } = useQuery<Seller[]>({
     queryKey: ["/api/sellers"],
+  });
+
+  // Fetch business categories for site generation
+  interface BusinessCategoryOption {
+    id: string;
+    labelPt: string;
+    icon: string;
+    primaryColor: string;
+  }
+  const { data: businessCategories } = useQuery<BusinessCategoryOption[]>({
+    queryKey: ["/api/business-categories"],
   });
 
   const updateMutation = useMutation({
@@ -149,8 +161,11 @@ export default function LeadsPage() {
 
 
   const generateSiteMutation = useMutation({
-    mutationFn: async (data: { id: string; customPrompt?: string }) => {
-      return apiRequest("POST", `/api/leads/${data.id}/generate-site`, { customPrompt: data.customPrompt });
+    mutationFn: async (data: { id: string; customPrompt?: string; businessType?: string }) => {
+      return apiRequest("POST", `/api/leads/${data.id}/generate-site`, { 
+        customPrompt: data.customPrompt,
+        businessType: data.businessType,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
@@ -168,6 +183,7 @@ export default function LeadsPage() {
   const handleGenerateSite = (lead: Lead) => {
     setGeneratingSiteLead(lead);
     setSitePrompt("");
+    setSelectedBusinessType((lead as any).businessType || "");
     setIsSiteDialogOpen(true);
   };
 
@@ -176,6 +192,7 @@ export default function LeadsPage() {
     generateSiteMutation.mutate({
       id: generatingSiteLead.id,
       customPrompt: sitePrompt.trim() || undefined,
+      businessType: selectedBusinessType || undefined,
     });
   };
 
@@ -692,9 +709,10 @@ export default function LeadsPage() {
         if (!open) {
           setGeneratingSiteLead(null);
           setSitePrompt("");
+          setSelectedBusinessType("");
         }
       }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="dialog-title-generate-site">
               <Wand2 className="h-5 w-5" />
@@ -707,18 +725,46 @@ export default function LeadsPage() {
                 <p className="font-medium" data-testid="text-site-business-name">{generatingSiteLead.businessName}</p>
                 <p className="text-sm text-muted-foreground" data-testid="text-site-city">{generatingSiteLead.city}</p>
               </div>
+              
+              {/* Business Type Selector */}
+              <div className="space-y-2">
+                <Label>Tipo de Negocio</Label>
+                <Select
+                  value={selectedBusinessType}
+                  onValueChange={setSelectedBusinessType}
+                >
+                  <SelectTrigger data-testid="select-business-type">
+                    <SelectValue placeholder="Detectar automaticamente pelo nome" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="">Detectar automaticamente</SelectItem>
+                    {businessCategories?.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <span className="flex items-center gap-2">
+                          <span 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: cat.primaryColor }}
+                          />
+                          {cat.labelPt}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selecione o tipo exato para gerar conteudo mais preciso, ou deixe em branco para detectar automaticamente.
+                </p>
+              </div>
+              
               <div className="space-y-2">
                 <Label>Instrucoes adicionais (opcional)</Label>
                 <Textarea
                   placeholder="Ex: Foque em musculacao e treino funcional, horario de 6h as 22h, promocao para novos alunos..."
                   value={sitePrompt}
                   onChange={(e) => setSitePrompt(e.target.value)}
-                  rows={4}
+                  rows={3}
                   data-testid="textarea-site-prompt"
                 />
-                <p className="text-xs text-muted-foreground">
-                  A IA vai detectar automaticamente o tipo de negocio pelo nome e gerar conteudo especifico.
-                </p>
               </div>
               {(generatingSiteLead as any).siteGenerated && (
                 <div className="p-3 rounded-lg bg-muted border" data-testid="warning-existing-site">
