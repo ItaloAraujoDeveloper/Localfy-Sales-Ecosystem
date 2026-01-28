@@ -185,7 +185,12 @@ interface SectionProps {
 function parseJSON<T>(jsonString: string | null | undefined, fallback: T): T {
   if (!jsonString) return fallback;
   try {
-    return JSON.parse(jsonString) as T;
+    const parsed = JSON.parse(jsonString);
+    // If fallback is an array, ensure parsed value is also an array
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) {
+      return fallback;
+    }
+    return parsed as T;
   } catch {
     return fallback;
   }
