@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "../server/routes";
@@ -20,8 +21,10 @@ async function ensureInitialized() {
   initialized = true;
 }
 
-// Export handler for Vercel
-export default async function handler(req: Request, res: Response) {
+// Export handler for Vercel Serverless Functions
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureInitialized();
-  return app(req, res);
+  
+  // Cast to Express types
+  return app(req as unknown as Request, res as unknown as Response);
 }
