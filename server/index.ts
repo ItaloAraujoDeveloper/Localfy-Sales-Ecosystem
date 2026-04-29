@@ -4,6 +4,8 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDefaultAdmin } from "./seed";
 
+// Localfy - Deploy on Vercel
+
 const app = express();
 const httpServer = createServer(app);
 

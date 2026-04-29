@@ -6,6 +6,7 @@ import { db } from "./db";
 import { users, registerSchema, loginSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { Pool } from "@neondatabase/serverless";
 
 declare module "express-session" {
   interface SessionData {
@@ -19,8 +20,12 @@ const ADMIN_EMAIL = "fl.italo.araujo@gmail.com";
 export function setupSession(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
+  
+  // Create a pool specifically for session storage
+  const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    pool: sessionPool,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
@@ -37,6 +42,7 @@ export function setupSession(app: Express) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         maxAge: sessionTtl,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       },
     })
   );

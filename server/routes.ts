@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupSession, registerAuthRoutes, isAuthenticated, isAdmin, isAdminOrManager } from "./auth";
 import { insertLeadSchema, insertSellerSchema, updateLeadSchema, updateSellerSchema, type BusinessCategory, type Lead, type User, users, sellers } from "@shared/schema";
 import { z } from "zod";
-import { generateImageBuffer } from "./replit_integrations/image/client";
+import { openai, generateImageBuffer } from "./openai";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { eq, inArray } from "drizzle-orm";
@@ -632,8 +632,7 @@ export async function registerRoutes(
       }
       const config = getBusinessCategory(detectedBusinessType)!;
 
-      // Generate content using OpenAI
-      const { openai } = await import("./replit_integrations/image/client");
+      // Generate content using OpenAI (imported at top of file)
       
       const systemPrompt = `Voce e um especialista em marketing digital e criacao de sites para pequenos negocios brasileiros.
 Gere conteudo persuasivo e profissional em portugues brasileiro.
