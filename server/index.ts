@@ -4,7 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDefaultAdmin } from "./seed";
 
-// Localfy - Production v3
+// Localfy - Production v6 - Force restart
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,8 +63,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seedDefaultAdmin();
-  await registerRoutes(httpServer, app);
+  console.log("[v0] Starting server initialization...");
+  try {
+    console.log("[v0] Seeding default admin...");
+    await seedDefaultAdmin();
+    console.log("[v0] Registering routes...");
+    await registerRoutes(httpServer, app);
+    console.log("[v0] Routes registered successfully");
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -94,6 +99,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
+  console.log("[v0] Starting HTTP server on port", port);
   httpServer.listen(
     {
       port,
@@ -102,6 +108,10 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      console.log("[v0] Server started successfully!");
     },
   );
+  } catch (error) {
+    console.error("[v0] Server initialization failed:", error);
+  }
 })();
