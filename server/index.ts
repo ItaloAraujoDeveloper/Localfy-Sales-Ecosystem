@@ -4,7 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDefaultAdmin } from "./seed";
 
-// Localfy - Production v6 - Force restart
+// Localfy - Server Restart v7
 
 const app = express();
 const httpServer = createServer(app);
