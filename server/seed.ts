@@ -3,7 +3,7 @@ import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
-const DEFAULT_ADMIN_EMAIL = "admin@localfy.com";
+const DEFAULT_ADMIN_EMAIL = "admin@localfy.com.br";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 export async function seedDefaultAdmin() {
@@ -30,7 +30,7 @@ export async function seedDefaultAdmin() {
       role: "admin",
     });
 
-    console.log("[seed] Default admin user created: admin@localfy.com / admin123");
+    console.log("[seed] Default admin user created: admin@localfy.com.br / admin123");
   } catch (error) {
     console.error("[seed] Error creating default admin:", error);
   }

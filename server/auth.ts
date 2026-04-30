@@ -6,7 +6,7 @@ import { db } from "./db";
 import { users, registerSchema, loginSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { Pool } from "@neondatabase/serverless";
+import pg from "pg";
 
 declare module "express-session" {
   interface SessionData {
@@ -21,8 +21,8 @@ export function setupSession(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   
-  // Create a pool specifically for session storage
-  const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Create a pool specifically for session storage using pg (not neon serverless, which requires WebSockets)
+  const sessionPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   
   const sessionStore = new pgStore({
     pool: sessionPool,
